@@ -9,17 +9,30 @@ import sqlite3
 from typing import List, Dict, Optional
 from Utilitaire.filter_manager import FilterManager
 from RessourceSuppl.RS_Models import Resource, ResourceCreate, ResourceOut
-from sqlalchemy.orm import Session
-
+from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy import create_engine
 
 db_path = "./bdd/chatbot_metadata.db"
 
+# SQLAlchemy engine and session setup
+SQLALCHEMY_DATABASE_URL = "sqlite:///./bdd/chatbot_metadata.db"
+engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 router = APIRouter()
 ollama_api = OllamaAPI()
 chatbot = RAGChatbot(ollama_api)
 filter_manager = FilterManager(db_path)
 manager = ResourceManager()
+
+# Dependency
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 # ENDPOINTS PRINCIPAUX
 @router.post("/login", response_model=models.LoginResponse) 
