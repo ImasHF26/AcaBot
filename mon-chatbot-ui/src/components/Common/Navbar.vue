@@ -1,64 +1,73 @@
-// src/components/Common/Navbar.vue
 <template>
   <nav class="navbar">
-    <div class="navbar-brand">Chatbot App</div>
-    
+    <div class="navbar-brand">
+      <div class="logo-container">
+        <img src="@/assets/logo.png" alt="EduLLM Logo" class="navbar-logo" />
+      </div>
+      <span class="navbar-slogan">L’IA au service de l’éducation</span>
+    </div>
+
     <!-- Liens de navigation - Masqués pour les invités -->
-    <div class="navbar-links" v-if="authStore.isAuthenticated && !authStore.isInvite">
-      <router-link to="/" class="nav-link">Chat</router-link>
-      <router-link v-if="isAdmin || isProf" to="/ingest" class="nav-link">Ingestion</router-link>
-      <router-link v-if="isAdmin || isProf" to="/documents" class="nav-link">Documents Ingérés</router-link>
-      <router-link v-if="isAdmin" to="/stats" class="nav-link">Statistiques</router-link>
-      <router-link v-if="isAdmin" to="/admin" class="nav-link admin-link">Administration</router-link>
+    <div
+      class="navbar-links"
+      v-if="authStore.isAuthenticated && !authStore.isInvite"
+    >
+      <router-link v-if="isRoleInvite" to="/" class="nav-link">Chat</router-link>
+      <router-link v-if="isRoleProf" to="/ingest" class="nav-link">Ingestion</router-link>
+      <router-link v-if="isRoleAdmin" to="/documents" class="nav-link">Documents Ingérés</router-link>
+      <router-link v-if="isRoleAdmin" to="/stats" class="nav-link">Statistiques</router-link>
+      <router-link v-if="isRoleAdmin" to="/admin" class="nav-link admin-link">Administration</router-link>
     </div>
 
     <!-- Section utilisateur - Masquée pour les invités -->
-    <div class="navbar-user" v-if="authStore.isAuthenticated && !authStore.isInvite">
-      <span>Bonjour, {{ authStore.user?.username }}</span>
+    <div
+      class="navbar-user"
+      v-if="authStore.isAuthenticated && !authStore.isInvite"
+    >
+      <span>Bonjour : {{ authStore.user?.username }}</span>
       <button @click="handleLogout" class="logout-button">Déconnexion</button>
     </div>
 
     <!-- Affichage spécifique pour les invités -->
     <div class="navbar-guest" v-if="authStore.isInvite">
-      <span style="margin-right: 10px;">Mode Invité</span>
-      <button @click="handleLogout" class="logout-button" style="background-color: #28a745 !important;">Connexion</button>
+      <span style="margin-right: 10px">Mode Invité</span>
+      <button
+        @click="handleLogout"
+        class="logout-button guest"
+      >
+        Connexion
+      </button>
     </div>
 
     <!-- Lien de connexion - Masqué pour les invités -->
-    <!-- <div class="navbar-login" v-if="!authStore.isAuthenticated && !authStore.isInvite">
+    <div
+      class="navbar-login"
+      v-if="!authStore.isAuthenticated && !authStore.isInvite"
+    >
       <router-link to="/login" class="nav-link login-link">Connexion</router-link>
-    </div> -->
+    </div>
   </nav>
 </template>
+
 <script setup>
-import { computed } from 'vue'; // Importez computed
-import { useAuthStore } from '@/stores/auth';
-import { useRouter } from 'vue-router'; // Importez useRouter pour la redirection après déconnexion
+import { computed } from "vue";
+import { useAuthStore } from "@/stores/auth";
+import { useRouter } from "vue-router";
 
 const authStore = useAuthStore();
-const router = useRouter(); // Initialisez useRouter
+const router = useRouter();
 
-// Propriété calculée pour vérifier si l'utilisateur est admin
-// Assurez-vous que authStore.user.profile_id est bien défini après la connexion
-const isAdmin = computed(() => {
-  // Vérifiez d'abord si user et profile_id existent pour éviter les erreurs
-  return authStore.user && authStore.user.profile_id === 1;
-});
-const isProf = computed(() => {
-  // Vérifiez d'abord si user et profile_id existent pour éviter les erreurs
-  return authStore.user && authStore.user.profile_id === 2;
-});
-
+const isRoleAdmin = computed(() => authStore.user?.profile_id === 1);
+const isRoleProf = computed(() => authStore.user?.profile_id === 2 || authStore.user?.profile_id === 1);
+const isRoleInvite = computed(() => authStore.user?.profile_id);
 
 const handleLogout = () => {
   if (authStore.isInvite) {
-    // Logique spécifique pour quitter le mode invité
     authStore.isInvite = false;
     authStore.user = null;
-    localStorage.removeItem('is_guest_mode');
-    router.push({ name: 'Login' });
+    localStorage.removeItem("is_guest_mode");
+    router.push({ name: "Login" });
   } else {
-    // Logique normale de déconnexion
     authStore.logout();
   }
 };
@@ -66,81 +75,141 @@ const handleLogout = () => {
 
 <style scoped>
 .navbar {
-  background-color: #333;
+  background: linear-gradient(90deg, #75a4c4 0%, #74a3c3 100%);
   color: white;
-  padding: 15px 30px;
+  padding: 14px 32px;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  font-family: 'Segoe UI', Arial, sans-serif;
+  box-shadow: 0 2px 12px rgba(52,152,219,0.07);
+}
+
+.logo-container {
+  border: 2px solid #2d3337;
 }
 
 .navbar-brand {
-  font-size: 1.5em;
-  font-weight: bold;
-  color: #fff; /* Assurez-vous que la couleur est visible */
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 180px;
+}
+
+.navbar-logo {
+  height: 70px;
+  width: auto;
+  margin-bottom: 2px;
+  display: block;
+}
+
+.navbar-slogan {
+  font-size: 0.95rem;
+  color: #eaf2f8;
+  margin-top: 2px;
+  font-style: italic;
+  letter-spacing: 0.2px;
 }
 
 .navbar-links {
-  display: flex; /* Ajout pour un meilleur alignement des liens */
-  align-items: center; /* Ajout pour un meilleur alignement des liens */
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
-.navbar-links .nav-link,
-.navbar-login .nav-link { /* Appliquer aussi aux liens de connexion */
+.nav-link,
+.login-link {
   color: white;
   text-decoration: none;
-  margin-left: 20px;
-  padding: 5px 10px;
-  border-radius: 4px;
-  transition: background-color 0.3s ease; /* Ajout d'une transition douce */
+  margin-left: 0;
+  padding: 7px 16px;
+  border-radius: 5px;
+  font-size: 1.08em;
+  font-weight: 500;
+  transition: background 0.2s, color 0.2s;
+  background: transparent;
+  border: none;
+  outline: none;
+  cursor: pointer;
 }
 
-.navbar-links .nav-link:first-child {
-  margin-left: 0; /* Pas de marge à gauche pour le premier lien si navbar-brand est à côté */
-}
-
-
-.navbar-links .nav-link:hover,
-.navbar-links .router-link-exact-active, /* router-link-active peut être trop large, exact-active est mieux */
-.navbar-login .nav-link:hover {
-  background-color: #555;
+.nav-link:hover,
+.login-link:hover,
+.router-link-exact-active {
+  background: rgba(255,255,255,0.13);
+  color: #f1c40f;
 }
 
 .admin-link {
-  /* Styles spécifiques si vous voulez que le lien admin se démarque */
-  /* font-weight: bold; */
-  /* color: #ffc107; */ /* Jaune pour admin par exemple */
+  color: #f1c40f;
+  font-weight: bold;
 }
 
 .navbar-user {
   display: flex;
   align-items: center;
+  gap: 12px;
 }
 
 .navbar-user span {
-  margin-right: 15px;
+  font-size: 1em;
+  color: #fff;
 }
 
 .logout-button {
   background-color: #d9534f;
   color: white;
   border: none;
-  padding: 8px 15px;
-  border-radius: 4px;
+  padding: 8px 18px;
+  border-radius: 5px;
+  font-size: 1em;
+  font-weight: 500;
   cursor: pointer;
-  transition: background-color 0.3s ease; /* Ajout d'une transition douce */
+  transition: background 0.2s;
+  margin-left: 8px;
 }
-
 .logout-button:hover {
   background-color: #c9302c;
 }
+.logout-button.guest {
+  background-color: #28a745;
+}
+.logout-button.guest:hover {
+  background-color: #218838;
+}
 
-/* Styles pour le lien de connexion si l'utilisateur n'est pas authentifié */
 .navbar-login .login-link {
-  background-color: #5cb85c; /* Vert pour le bouton de connexion */
-  padding: 8px 15px; /* Même padding que le bouton de déconnexion */
+  background-color: #f1c40f;
+  color: #34495e;
+  font-weight: bold;
+  padding: 8px 18px;
+  border-radius: 5px;
+  margin-left: 0;
 }
 .navbar-login .login-link:hover {
-  background-color: #4cae4c;
+  background-color: #ffe599;
+  color: #217dbb;
+}
+
+@media (max-width: 900px) {
+  .navbar {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 10px 8px;
+    gap: 10px;
+  }
+  .navbar-brand {
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  .navbar-links {
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .navbar-user, .navbar-login, .navbar-guest {
+    justify-content: center;
+    margin-top: 8px;
+  }
 }
 </style>

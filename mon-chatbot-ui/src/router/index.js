@@ -4,7 +4,7 @@ import { useAuthStore } from '@/stores/auth'; // Assurez-vous que Pinia est init
 // Importation des vues
 import LoginView from '@/views/LoginView.vue';
 import RegisterView from '@/views/RegisterView.vue';
-//import ChangePasswordForm from '@/views/ChangePasswordForm.vue'; 
+//import ChangePasswordForm from '@//ChangePasswordForm.vue'; 
 import DashboardLayout from '@/views/DashboardLayout.vue';
 import ChatView from '@/views/ChatView.vue';
 import IngestView from '@/views/IngestView.vue';
@@ -15,58 +15,70 @@ import AdminDepartements from '@/components/admin/AdminDepartements.vue';
 import AdminFilieres from '@/components/admin/AdminFilieres.vue';
 import AdminModules from '@/components/admin/AdminModules.vue';
 import AdminActivites from '@/components/admin/AdminActivites.vue';
+import NonAutorisePage from '@/views/NonAutorisePage.vue';
 
 const routes = [
-  {
-    path: '/chat',
-    name: 'Chat', // Assurez-vous que ce nom est utilisé dans les redirections
-    component: ChatView,
-    beforeEnter: (to, from, next) => {
-    const authStore = useAuthStore()
-    // Autoriser l'accès si authentifié OU en mode invité
-    if (authStore.isAuthenticated || authStore.isInviteMode) {
-      next()
-    } else {
-      next('/login')
-    }
-  }
-  },
   {
     path: '/login',
     name: 'Login', // Assurez-vous que ce nom est utilisé dans les redirections
     component: LoginView,
-    meta: { requiresGuest: true }
+        meta: {
+            requiresAuth: false,
+          }
   },
   
   {
     path: '/',
     component: DashboardLayout,
-    meta: { requiresAuth: true },
     children: [
       {
         path: '',
         name: 'Chat', // Nom de la route par défaut
         component: ChatView,
+        meta: {
+            requiresAuth: true,
+            roles: [1, 2,3,4,5] // Accessible par Admin (1) ou Prof (2)
+                     // (la hiérarchie est gérée par permissionsParProfil)
+          }
       },
       {
         path: 'ingest',
         name: 'Ingest',
         component: IngestView,
+        meta: {
+            requiresAuth: true,
+            roles: [1] // Accessible par Admin (1) ou Prof (2)
+                     // (la hiérarchie est gérée par permissionsParProfil)
+          }
       },
       {
         path: 'documents',
         name: 'Documents',
         component: DocumentsView,
+        meta: {
+            requiresAuth: true,
+            roles: [1, 2,3,4,5] // Accessible par Admin (1) ou Prof (2)
+                     // (la hiérarchie est gérée par permissionsParProfil)
+          }
       },
       {
         path: 'stats',
         name: 'Stats',
         component: StatsView,
+        meta: {
+            requiresAuth: true,
+            roles: [1, 2,3,4,5] // Accessible par Admin (1) ou Prof (2)
+                     // (la hiérarchie est gérée par permissionsParProfil)
+          }
       },
       {
         path: 'admin', // Changé de /admin à admin pour être relatif au parent '/'
         component: AdminView,
-        meta: { requiresAdmin: true }, // requiresAuth est hérité du parent
+        meta: {
+            requiresAuth: true,
+            roles: [1, 2,3,4,5] // Accessible par Admin (1) ou Prof (2)
+                     // (la hiérarchie est gérée par permissionsParProfil)
+        },
         children: [
           { path: '', name: 'AdminDashboard', redirect: { name: 'AdminDepartements' } }, // Redirection par défaut
           { path: 'departements', name: 'AdminDepartements', component: AdminDepartements },
@@ -87,59 +99,85 @@ const routes = [
       const authStore = useAuthStore();
       return authStore.isAuthenticated ? { name: 'Chat' } : { name: 'Login' };
     }
+  },
+  {
+    path: '/non-autorise',
+    name: 'NonAutorise', // Ce nom est utilisé dans next({ name: 'NonAutorise' })
+    component: NonAutorisePage
   }
 ];
 
 const router = createRouter({
-  history: createWebHistory(import.meta.env.BASE_URL),
-  routes,
+  history: createWebHistory(import.meta.env.BASE_URL), // ou juste createWebHistory()
+  routes
 });
 
-// Garde de navigation globale
-router.beforeEach(async (to, from, next) => { // Ajout de async si loadUserFromStorage est asynchrone
+const permissionsParProfil = {
+  1: [1, 2, 3, 5],
+  2: [2, 3, 5],
+  3: [3, 5],
+  5: [5]
+};
+
+router.beforeEach((to, from, next) => {
+  const necessiteAuthentification = to.matched.some(record => record.meta.requiresAuth);
+  const rolesRequisPourRoute = to.meta.roles; // Doit être un tableau de profile_id, ex: [1] ou [2, 3]
   const authStore = useAuthStore();
-  if (to.name === 'Chat') {
-    console.log("Router Guard: Accessing public chat page.");
+  const utilisateurActuel = authStore.user;
+  console.log("Connected user",utilisateurActuel );
+
+  if (necessiteAuthentification) {
+    if (!utilisateurActuel) {
+      // Utilisateur non connecté et la route nécessite une authentification
+      console.log(`Accès refusé à ${to.path} (non connecté), redirection vers Login.`);
+      next({ name: 'Login', query: { redirect: to.fullPath } }); // Optionnel: rediriger vers la page voulue après login
+    } else {
+      // Utilisateur connecté
+      if (rolesRequisPourRoute && rolesRequisPourRoute.length > 0) {
+        const profileIdUtilisateur = utilisateurActuel.profile_id;
+
+        if (typeof profileIdUtilisateur === 'undefined') {
+          console.error("L'objet utilisateur n'a pas de propriété 'profile_id':", utilisateurActuel);
+          next({ name: 'Erreur' });
+          return;
+        }
+
+        const rolesAccessiblesParUtilisateur = permissionsParProfil[profileIdUtilisateur];
+
+        if (!rolesAccessiblesParUtilisateur) {
+          console.warn(`Aucune permission définie dans 'permissionsParProfil' pour le profile_id: ${profileIdUtilisateur}. Accès refusé à ${to.path}.`);
+          next({ name: 'NonAutorise' });
+          return;
+        }
+
+        // Vérifier si l'utilisateur a la permission pour au moins un des rôles requis par la route,
+        // en se basant sur les rôles auxquels son propre profil lui donne accès (hiérarchie).
+        const aLaPermission = rolesRequisPourRoute.some(roleRoute =>
+          rolesAccessiblesParUtilisateur.includes(roleRoute)
+        );
+
+        if (aLaPermission) {
+          console.log(`Accès autorisé à ${to.path} pour l'utilisateur avec profile_id ${profileIdUtilisateur}.`);
+          next();
+        } else {
+          console.log(`Accès refusé à ${to.path} pour l'utilisateur avec profile_id ${profileIdUtilisateur} (rôle insuffisant). Redirection vers NonAutorise.`);
+          next({ name: 'NonAutorise' });
+        }
+      } else {
+        // La route nécessite une authentification mais pas de rôle spécifique, donc on autorise
+        console.log(`Accès autorisé à ${to.path} (authentification requise, pas de rôle spécifique).`);
+        next();
+      }
+    }
+  } else if (to.meta.requiresGuest && utilisateurActuel) {
+    // Si la route est pour les invités (ex: page de login) et que l'utilisateur est déjà connecté
+    console.log(`Utilisateur connecté essayant d'accéder à une route 'invité' (${to.path}). Redirection vers Accueil.`);
+    next({ name: 'Accueil' });
+  } else {
+    // La route ne nécessite pas d'authentification (page publique) ou aucune condition spéciale non remplie
+    console.log(`Accès autorisé à ${to.path} (route publique ou sans conditions spécifiques).`);
     next();
-    return;
   }
-  // Assurez-vous que l'état de l'utilisateur est chargé (surtout après un rechargement de page)
-  // Cela devrait être fait avant les vérifications d'authentification
-  if (!authStore.user && localStorage.getItem('userToken')) { // Vérifiez le token ou un indicateur d'utilisateur
-    // Si loadUserFromStorage est asynchrone, attendez sa complétion
-    await authStore.loadUserFromStorage(); // Assurez-vous que cette méthode existe et fonctionne
-  }
-
-  const isAuthenticated = authStore.isAuthenticated;
-  // Assurez-vous que authStore.user est défini avant d'accéder à authStore.user.id
-  const isAdmin = isAuthenticated && authStore.user && authStore.user.profile_id === 1; // ou authStore.user.role === 'admin'
-
-  // Logique pour les routes nécessitant d'être invité (non connecté)
-  if (to.meta.requiresGuest && isAuthenticated) {
-    console.log("Router Guard: User is authenticated, redirecting from guest page to Chat.");
-    next({ name: 'Chat' });
-    return; // Important: sortir après next() pour éviter d'autres appels
-  }
-
-  // Logique pour les routes nécessitant une authentification
-  if (to.meta.requiresAuth && !isAuthenticated) {
-    console.log("Router Guard: Route requires auth, user not authenticated, redirecting to Login.");
-    next({ name: 'Login' });
-    return; // Important
-  }
-
-  // Logique pour les routes nécessitant un rôle admin
-  // Cette vérification doit venir APRÈS la vérification requiresAuth
-  if (to.meta.requiresAdmin && !isAdmin) {
-    console.warn("Router Guard: User is not admin, redirecting from admin page to Chat.");
-    // Rediriger vers la page d'accueil ou une page "Non autorisé"
-    next({ name: 'Chat' }); // Ou une page 'Unauthorized' si vous en avez une
-    return; // Important
-  }
-
-  // Si aucune des conditions ci-dessus n'a entraîné une redirection, autoriser la navigation
-  console.log("Router Guard: Allowing navigation to", to.name || to.path);
-  next();
 });
 
 export default router;

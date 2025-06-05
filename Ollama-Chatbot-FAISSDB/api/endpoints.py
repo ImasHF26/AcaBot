@@ -1,12 +1,16 @@
-from fastapi import APIRouter, HTTPException, Query , Form, UploadFile, File
+from fastapi import APIRouter, HTTPException, Query , Depends,Form, UploadFile, File, status, Body
 from rag_chatbot import RAGChatbot
 from ollama_api import OllamaAPI
 from .models import *
+import api.models as models
 from Utilitaire.ResourceManager import ResourceManager
 from fastapi.responses import JSONResponse
 import sqlite3
 from typing import List, Dict, Optional
 from Utilitaire.filter_manager import FilterManager
+from RessourceSuppl.RS_Models import Resource, ResourceCreate, ResourceOut
+from sqlalchemy.orm import Session
+
 
 db_path = "./bdd/chatbot_metadata.db"
 
@@ -18,8 +22,8 @@ filter_manager = FilterManager(db_path)
 manager = ResourceManager()
 
 # ENDPOINTS PRINCIPAUX
-@router.post("/login", response_model=LoginResponse) 
-def login(data: LoginRequest):
+@router.post("/login", response_model=models.LoginResponse) 
+def login(data: models.LoginRequest):
     user_info = filter_manager.authenticate(data.username, data.password)
     if not user_info:
         raise HTTPException(status_code=401, detail="Nom d'utilisateur ou mot de passe incorrect")
@@ -40,21 +44,105 @@ def login(data: LoginRequest):
         "user_info": user_info
     }
 
-@router.post("/register")
-def register_user(data: RegisterRequest):
+
+# --- Endpoints CRUD plus génériques ---
+
+# @router.post("/users/", response_model=models.UserResponse, status_code=status.HTTP_201_CREATED)
+# def create_new_user(user_data: models.UserCreate):
+#     try:
+#         created_user = filter_manager.create_user(user_data)
+#         return created_user
+#     except filter_manager.DuplicateUserError as e:
+#         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
+#     except Exception as e:
+#         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
+# Endpoint d'enregistrement Users
+
+@router.post("/CreateUser/", response_model=models.UserResponse, status_code=status.HTTP_201_CREATED)
+def register_user_endpoint(data: models.UserCreate):
     try:
-        result = filter_manager.register_user(
-            username=data.username,
-            password=data.password,
-            profile_id=data.profile_id,
-            filiere_id=data.filiere_id,
-            annee=data.annee
-        )
-        if "Erreur" in result:
-            raise HTTPException(status_code=400, detail=result)
-        return {"message": result}
+        created_user = filter_manager.create_user(data)
+        return created_user
+    except filter_manager.DuplicateUserError as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Erreur interne du serveur: {str(e)}")
+
+
+@router.get("/GetUser/{user_id}", response_model=models.UserResponse)
+def read_user(user_id: int):
+    user = filter_manager.get_user_by_id(user_id)
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Utilisateur non trouvé")
+    return user
+
+@router.get("/GetUsers/", response_model=List[models.UserResponse])
+def read_all_users():
+    users = filter_manager.get_all_users()
+    return users
+
+@router.put("/UpdateUser/{user_id}", response_model=models.UserResponse)
+def update_existing_user(user_id: int, user_update_data: models.UserUpdate):
+    try:
+        updated_user = filter_manager.update_user(user_id, user_update_data)
+        return updated_user
+    except filter_manager.UserNotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except filter_manager.DuplicateUserError as e: # Si la mise à jour cause un username dupliqué
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
+@router.delete("/DelUser/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_existing_user(user_id: int):
+    try:
+        if not filter_manager.delete_user(user_id):
+            # Normalement, delete_user lève UserNotFoundError si non trouvé
+            pass # La fonction delete_user lève une exception si non trouvé
+    except filter_manager.UserNotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+    return None # Réponse 204 No Content
+
+# --- Endpoints d'activation/désactivation ---
+
+@router.patch("/users/{user_id}/activate", response_model=models.UserResponse)
+def activate_user_endpoint(user_id: int):
+    try:
+        user = filter_manager.set_user_active_status(user_id, True)
+        return user
+    except filter_manager.UserNotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
+@router.patch("/users/{user_id}/deactivate", response_model=models.UserResponse)
+def deactivate_user_endpoint(user_id: int):
+    try:
+        user = filter_manager.set_user_active_status(user_id, False)
+        return user
+    except filter_manager.UserNotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
+# @router.post("/register")
+# def register_user(data: RegisterRequest):
+#     try:
+#         result = filter_manager.register_user(
+#             username=data.username,
+#             password=data.password,
+#             profile_id=data.profile_id,
+#             filiere_id=data.filiere_id,
+#             annee=data.annee
+#         )
+#         if "Erreur" in result:
+#             raise HTTPException(status_code=400, detail=result)
+#         return {"message": result}
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=str(e))
     
 @router.post("/change_password")
 def change_password(data: ChangePasswordRequest):
@@ -75,13 +163,33 @@ def change_password(data: ChangePasswordRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/chat", response_model=ChatResponse)
-def chat_with_context(data: ChatRequest):
+def chat_with_context(data: ChatRequest, db: Session = Depends(get_db)):
     result = chatbot.generate_response(
         user_query=data.message,
+        user_id=data.user_id,
+        profile_id=data.profile_id,
         departement_id=data.departement_id,
         filiere_id=data.filiere_id
     )
-    return {"response": result}
+    resources = []
+    if getattr(data, "show_resources", False):
+        context_tags = Resource.extract_tags_from_question(data.message)
+        resources = Resource.get_additional_resources(db, context_tags)
+    return {
+        "response": result,
+        "resources": [ResourceOut.from_orm(r) for r in resources]
+    }
+
+# @router.post("/chat", response_model=ChatResponse)
+# def chat_with_context(data: ChatRequest):
+#     result = chatbot.generate_response(
+#         user_query=data.message,
+#         user_id=data.user_id,
+#         profile_id=data.profile_id,
+#         departement_id=data.departement_id,
+#         filiere_id=data.filiere_id
+#     )
+#     return {"response": result}
 
 # @router.post("/ingest")
 # def ingest_document(data: IngestRequest):
@@ -294,3 +402,75 @@ def update_activite(id: int, data: Activite):
 @router.delete("/activites/{id}")
 def delete_activite(id: int):
     return {"deleted": manager.delete_activite(id)}
+
+
+#### ENDPOINTS RESSOURCES SUPPLÉMENTAIRES###
+
+# Dependency
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+@router.post("/resources/", response_model=ResourceOut)
+def create_resource(resource: ResourceCreate, db: Session = Depends(get_db)):
+    db_resource = Resource(**resource.dict())
+    db.add(db_resource)
+    db.commit()
+    db.refresh(db_resource)
+    return db_resource
+
+@router.get("/resources/", response_model=List[ResourceOut])
+def read_resources(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+    return db.query(Resource).offset(skip).limit(limit).all()
+
+@router.get("/resources/{resource_id}", response_model=ResourceOut)
+def read_resource(resource_id: int, db: Session = Depends(get_db)):
+    db_resource = db.query(Resource).filter(Resource.id == resource_id).first()
+    if db_resource is None:
+        raise HTTPException(status_code=404, detail="Resource not found")
+    return db_resource
+
+@router.put("/resources/{resource_id}", response_model=ResourceOut)
+def update_resource(resource_id: int, resource: ResourceCreate, db: Session = Depends(get_db)):
+    db_resource = db.query(Resource).filter(Resource.id == resource_id).first()
+    if db_resource is None:
+        raise HTTPException(status_code=404, detail="Resource not found")
+    for key, value in resource.dict().items():
+        setattr(db_resource, key, value)
+    db.commit()
+    db.refresh(db_resource)
+    return db_resource
+
+@router.delete("/resources/{resource_id}")
+def delete_resource(resource_id: int, db: Session = Depends(get_db)):
+    db_resource = db.query(Resource).filter(Resource.id == resource_id).first()
+    if db_resource is None:
+        raise HTTPException(status_code=404, detail="Resource not found")
+    db.delete(db_resource)
+    db.commit()
+    return {"ok": True}
+
+# @router.post("/ask")
+# def ask(
+#     req: AskRequest = Body(...),
+#     db: Session = Depends(get_db)
+# ):
+#     # 1. Génération de la réponse via ta logique RAG
+#     cleaned_llm_response = chatbot.generate_response(
+#         req.user_query, req.user_id, req.profile_id, req.departement_id, req.filiere_id
+#     )
+
+#     # 2. Si demandé, récupération des ressources pertinentes
+#     resources = []
+#     if req.show_resources:
+#         context_tags = Resource.extract_tags_from_question(req.user_query)
+#         resources = Resource.get_additional_resources(db, context_tags)
+
+#     return {
+#         "answer": cleaned_llm_response,
+#         "resources": [ResourceOut.from_orm(r) for r in resources]
+#     }
+

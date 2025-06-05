@@ -20,8 +20,8 @@
           <option value="username">Utilisateur</option>
           <option value="departement">Département</option>
           <option value="filiere">Filière</option>
-          <option value="module">Module</option>
-          <option value="activite">Activité</option>
+          <!-- <option value="module">Module</option>
+          <option value="activite">Activité</option> -->
         </select>
       </div>
 

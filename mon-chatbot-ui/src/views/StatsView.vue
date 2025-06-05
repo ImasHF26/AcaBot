@@ -305,7 +305,7 @@ h2 {
 
 .stats-lists-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 20px;
 }
 
@@ -347,9 +347,14 @@ h2 {
 }
 
 .chart-container {
-  height: 400px; 
+  height: 400px;
   position: relative;
+  padding: 20px 10px 10px 10px;
+  background: #f8fafc;
+  border-radius: 12px;
+  box-shadow: 0 4px 16px rgba(52,152,219,0.07);
 }
+
 .chart-container canvas {
   position: relative;
   top: 0;
@@ -382,5 +387,26 @@ h2 {
   border-radius: 12px;
   font-size: 0.9em;
   color: #2c3e50;
+}
+
+.card, .stat-card {
+  transition: box-shadow 0.2s;
+}
+.card:hover, .stat-card:hover {
+  box-shadow: 0 8px 24px rgba(52, 152, 219, 0.15);
+  border-color: #b2dffc;
+}
+h2, h3, h4 {
+  font-family: 'Montserrat', 'Segoe UI', Arial, sans-serif;
+  letter-spacing: 0.5px;
+}
+.stat-value {
+  color: #1abc9c;
+  text-shadow: 0 2px 8px #e0f7fa;
+}
+.refresh-button {
+  font-family: 'Montserrat', Arial, sans-serif;
+  font-weight: 600;
+  letter-spacing: 1px;
 }
 </style>

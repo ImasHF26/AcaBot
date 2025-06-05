@@ -10,10 +10,11 @@ import {
   Tooltip,
   Legend,
   ArcElement,
-  CategoryScale, // Bien que ce soit un Pie, CategoryScale est souvent enregistré
+  CategoryScale,
 } from 'chart.js';
+import ChartDataLabels from 'chartjs-plugin-datalabels';
 
-ChartJS.register(Title, Tooltip, Legend, ArcElement, CategoryScale);
+ChartJS.register(Title, Tooltip, Legend, ArcElement, CategoryScale, ChartDataLabels);
 
 defineProps({
   chartData: {
@@ -26,8 +27,24 @@ defineProps({
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
-        legend: {
-          position: 'top', // Ou 'bottom', 'left', 'right'
+        legend: { position: 'bottom' },
+        datalabels: {
+          color: '#fff',
+          font: { weight: 'bold', size: 14 },
+          borderRadius: 4,
+          backgroundColor: 'rgba(44, 62, 80, 0.7)',
+          padding: 6,
+          formatter: (value, context) => {
+            // Récupère toutes les valeurs du dataset
+            const data = context.chart.data.datasets[0].data;
+            // Calcule le total
+            const total = data.reduce((a, b) => a + b, 0);
+            if (!total) return '0 (0%)';
+            // Calcule le pourcentage
+            const percentage = (value / total) * 100;
+            // Retourne valeur + pourcentage
+            return `${value} (${percentage.toFixed(1)}%)`;
+          },
         },
       },
     }),

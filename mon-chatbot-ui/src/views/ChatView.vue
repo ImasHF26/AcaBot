@@ -5,10 +5,9 @@
     >
       <h1>Chatbot</h1>
       <!-- Le lien de connexion pour invité peut rester si vous le souhaitez ici -->
-      <div class="navbar-login" v-if="authStore.isInvite">
-        <router-link to="/login" class="nav-link login-link">Connexion</router-link
-        >
-      </div>
+      <!-- <div class="navbar-login" v-if="authStore.isInvite">
+        <router-link to="/login" class="nav-link login-link">Connexion</router-link>
+      </div> -->
     </div>
 
     <div class="chat-layout">

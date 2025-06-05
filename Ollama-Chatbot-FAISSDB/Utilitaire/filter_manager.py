@@ -1,15 +1,21 @@
 import sqlite3
 import hashlib
-from typing import Optional
-from api.models import ChatHistoryEntry
-from datetime import datetime, date, timedelta
+from typing import Optional, Dict, Any, List
+import api.models as models
+# from api.models.exceptions import UserNotFoundError, DuplicateUserError, ChatHistoryEntry
+
+class UserNotFoundError(Exception):
+    pass
+
+class DuplicateUserError(Exception):
+    pass
+from datetime import date, timedelta
+
 
 # Database path
 db_path = "./bdd/chatbot_metadata.db"
 
 class FilterManager:
-
-
 
     def __init__(self, db_path: str):
         self.db_path = db_path
@@ -58,45 +64,151 @@ class FilterManager:
         return user_data
 
     # User registration
-    def register_user(self, username: str, password: str, profile_id: int, filiere_id: int = None, annee: str = None) -> str:
-        try:
-            if not username or not password:
-                return "Erreur : Le nom d'utilisateur et le mot de passe sont requis."
-            if profile_id not in [1, 2, 3]:
-                return "Erreur : Profil invalide."
-            if profile_id == 3 and (not filiere_id or not annee):
-                return "Erreur : La filière et l'année scolaire sont requises pour les étudiants."
+    # --- Opérations CRUD ---
 
-            conn = sqlite3.connect(self.db_path)
-            conn.row_factory = sqlite3.Row
-            c = conn.cursor()
+    class UserNotFoundError(Exception):
+        pass
 
-            c.execute("SELECT id FROM users WHERE username = ?", (username,))
-            if c.fetchone():
-                conn.close()
-                return "Erreur : Ce nom d'utilisateur est déjà utilisé."
+    class DuplicateUserError(Exception):
+        pass
 
-            hashed_password = self.hash_password(password)
-
-            # Par défaut, l'utilisateur est actif et le mot de passe est considéré comme par défaut (à changer)
-            c.execute(
-                "INSERT INTO users (username, password, profile_id, filiere_id, annee_scolaire, is_active, is_default_password) VALUES (?, ?, ?, ?, ?, 1, 1)",
-                (username, hashed_password, profile_id, filiere_id, annee)
-            )
-            conn.commit()
-            conn.close()
-            return "Inscription réussie ! Vous pouvez maintenant vous connecter."
-        except Exception as e:
-            return f"Erreur lors de l'inscription : {str(e)}"
-        
-    def get_user_by_id(self, user_id: int):
+    def get_db_connection(self):
+        """Crée et retourne une connexion à la base de données."""
         conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row
+        conn.row_factory = sqlite3.Row # Pour accéder aux colonnes par nom
+        return conn
+
+    # def get_user_by_id(self, user_id):
+    #     """Récupère un utilisateur par son ID."""
+    #     conn = self.get_db_connection()
+    #     cursor = conn.cursor()
+    #     cursor.execute('SELECT * FROM users WHERE id = ?', (user_id,))
+    #     user = cursor.fetchone()
+    #     conn.close()
+    #     if user:
+    #         return dict(user) 
+    #     return None
+
+    def _db_row_to_user_response_dict(self, row: sqlite3.Row) -> Optional[Dict[str, Any]]:
+        if not row:
+            return None
+        user_dict = dict(row)
+        # Convertir les booléens stockés en INTEGER en bool Python
+        user_dict['is_active'] = bool(user_dict.get('is_active', 0))
+        user_dict['is_default_password'] = bool(user_dict.get('is_default_password', 0))
+        return user_dict
+
+    def create_user(self, user_data: models.UserCreate) -> Dict[str, Any]:
+        hashed_password = self.hash_password(user_data.password)
+        conn = self.get_db_connection()
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM users WHERE id = ?", (user_id,))
-        user = cursor.fetchone()
+        try:
+            cursor.execute('''
+                INSERT INTO users (username, password, profile_id, filiere_id, annee_scolaire, is_active, is_default_password)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (user_data.username, hashed_password, user_data.profile_id,
+                  user_data.filiere_id, user_data.annee_scolaire,
+                  int(user_data.is_active), int(user_data.is_default_password)))
+            conn.commit()
+            user_id = cursor.lastrowid
+            # Récupérer l'utilisateur créé pour le retourner
+            created_user_row = cursor.execute('SELECT * FROM users WHERE id = ?', (user_id,)).fetchone()
+            return self._db_row_to_user_response_dict(created_user_row)
+        except sqlite3.IntegrityError:
+            raise DuplicateUserError(f"Le nom d'utilisateur '{user_data.username}' existe déjà.")
+        finally:
+            conn.close()
+
+    def get_user_by_id(self, user_id: int) -> Optional[Dict[str, Any]]:
+        conn = self.get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('SELECT * FROM users WHERE id = ?', (user_id,))
+        user_row = cursor.fetchone()
         conn.close()
-        return user
+        return self._db_row_to_user_response_dict(user_row)
+
+    def get_user_by_username(self, username: str) -> Optional[Dict[str, Any]]:
+        conn = self.get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('SELECT * FROM users WHERE username = ?', (username,))
+        user_row = cursor.fetchone()
+        conn.close()
+        return self._db_row_to_user_response_dict(user_row)
+
+    def get_all_users(self) -> List[Dict[str, Any]]:
+        conn = self.get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('SELECT * FROM users')
+        users_rows = cursor.fetchall()
+        conn.close()
+        return [self._db_row_to_user_response_dict(row) for row in users_rows if row]
+
+    def update_user(self, user_id: int, user_data: models.UserUpdate) -> Optional[Dict[str, Any]]:
+        current_user = self.get_user_by_id(user_id)
+        if not current_user:
+            raise UserNotFoundError(f"Utilisateur avec ID {user_id} non trouvé.")
+
+        update_fields = {}
+        if user_data.username is not None:
+            update_fields['username'] = user_data.username
+        if user_data.password is not None: # Si un nouveau mot de passe est fourni
+            update_fields['password'] = self.hash_password(user_data.password)
+        if user_data.profile_id is not None:
+            update_fields['profile_id'] = user_data.profile_id
+        if user_data.filiere_id is not None:
+            update_fields['filiere_id'] = user_data.filiere_id
+        if user_data.annee_scolaire is not None: # Note: alias 'annee' géré par Pydantic
+            update_fields['annee_scolaire'] = user_data.annee_scolaire
+        if user_data.is_active is not None:
+            update_fields['is_active'] = int(user_data.is_active)
+        if user_data.is_default_password is not None:
+            update_fields['is_default_password'] = int(user_data.is_default_password)
+
+        if not update_fields:
+            return current_user # Rien à mettre à jour
+
+        set_clause = ", ".join([f"{key} = ?" for key in update_fields.keys()])
+        values = list(update_fields.values())
+        values.append(user_id)
+
+        conn = self.get_db_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute(f"UPDATE users SET {set_clause} WHERE id = ?", tuple(values))
+            conn.commit()
+            if cursor.rowcount == 0: # Au cas où, bien que vérifié avant
+                raise UserNotFoundError(f"Utilisateur avec ID {user_id} non trouvé lors de la tentative de mise à jour.")
+            return self.get_user_by_id(user_id) # Retourner l'utilisateur mis à jour
+        except sqlite3.IntegrityError: # Ex: si on essaie de changer username pour un existant
+            raise DuplicateUserError(f"Conflit de données lors de la mise à jour, potentiellement un nom d'utilisateur dupliqué.")
+        finally:
+            conn.close()
+
+    def delete_user(self, user_id: int) -> bool:
+        conn = self.get_db_connection()
+        cursor = conn.cursor()
+        # Vérifier d'abord si l'utilisateur existe
+        user = self.get_user_by_id(user_id)
+        if not user:
+            conn.close()
+            raise UserNotFoundError(f"Utilisateur avec ID {user_id} non trouvé.")
+        
+        cursor.execute('DELETE FROM users WHERE id = ?', (user_id,))
+        conn.commit()
+        deleted_count = cursor.rowcount
+        conn.close()
+        return deleted_count > 0
+
+    def set_user_active_status(self, user_id: int, active_status: bool) -> Optional[Dict[str, Any]]:
+        return self.update_user(user_id, models.UserUpdate(is_active=active_status))
+
+    # def get_user_by_id(self, user_id: int):
+    #     conn = self.get_db_connection()
+    #     cursor = conn.cursor()
+    #     cursor.execute("SELECT * FROM users WHERE id = ?", (user_id,))
+    #     user = cursor.fetchone()
+    #     conn.close()
+    #     return user
 
     def change_password(self, user_id: int, new_password: str) -> str:
         try:
@@ -117,25 +229,26 @@ class FilterManager:
             raise RuntimeError(f"Erreur lors du changement de mot de passe : {str(e)}")
         
     # Traçabilité des conversations par utilisateur
-    def save_chat_history( user_id, question, answer, departement_id, filiere_id, module_id, activite_id, profile_id):
+    def save_chat_history( user_id, question, answer, departement_id, filiere_id, profile_id):
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
 
         cursor.execute("""
-            INSERT INTO chat_history (user_id, question, answer, departement_id, filiere_id, module_id, activite_id, profile_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        """, (user_id, question, answer, departement_id, filiere_id, module_id, activite_id, profile_id))
+            INSERT INTO chat_history (user_id, question, answer, departement_id, filiere_id, profile_id)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (user_id, question, answer, departement_id, filiere_id, profile_id))
 
         conn.commit()
         conn.close()
     # Inserer les metadonnées des docs ds BDD chatbot_metadata
-    def insert_metadata_sqlite(base_filename ,file_hash, chunk_index, chunk_text, departement_id, filiere_id, module_id, activite_id, profile_id,user_id):
+    
+    def insert_metadata_sqlite(base_filename, file_hash, chunk_index, chunk_text, departement_id, filiere_id, module_id, activite_id, profile_id, user_id):
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
         cursor.execute("""
-            INSERT INTO document_metadata (base_filename, file_hash, chunk_index, chunk_text, departement_id, filiere_id, module_id, activite_id, profile_id,user_id)
+            INSERT INTO document_metadata (base_filename, file_hash, chunk_index, chunk_text, departement_id, filiere_id, module_id, activite_id, profile_id, user_id)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (base_filename, file_hash, chunk_index, chunk_text, departement_id, filiere_id, module_id, activite_id, profile_id,user_id))
+        """, (base_filename, file_hash, chunk_index, chunk_text, departement_id, filiere_id, module_id, activite_id, profile_id, user_id))
         conn.commit()
         conn.close()
 
@@ -307,9 +420,7 @@ class FilterManager:
                 p.nom AS profile, 
                 u.username, 
                 dep.nom AS departement, 
-                f.nom AS filiere, 
-                mo.nom AS module, 
-                act.nom AS activite, 
+                f.nom AS filiere,
                 ch.question, 
                 ch.answer, 
                 ch.timestamp
@@ -318,8 +429,7 @@ class FilterManager:
             JOIN users u ON ch.user_id = u.id
             JOIN departements dep ON ch.departement_id = dep.id
             JOIN filieres f ON ch.filiere_id = f.id
-            JOIN modules mo ON ch.module_id = mo.id
-            JOIN activites act ON ch.activite_id = act.id
+            
             ORDER BY ch.timestamp DESC
         """
 
@@ -329,16 +439,14 @@ class FilterManager:
         conn.close()
 
         return [
-            ChatHistoryEntry(
+            models.ChatHistoryEntry(
                 profile=row[0],
                 username=row[1],
                 departement=row[2],
                 filiere=row[3],
-                module=row[4],
-                activite=row[5],
-                user_query=row[6],
-                chatbot_response=row[7],
-                timestamp=row[8]
+                user_query=row[4],
+                chatbot_response=row[5],
+                timestamp=row[6]
             )
             for row in rows
         ]

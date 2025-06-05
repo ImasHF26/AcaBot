@@ -13,33 +13,30 @@ import {
   CategoryScale,
   LinearScale,
 } from 'chart.js';
+import ChartDataLabels from 'chartjs-plugin-datalabels';
 
-ChartJS.register(Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale);
+ChartJS.register(Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale, ChartDataLabels);
 
 defineProps({
-  chartData: {
-    type: Object,
-    required: true,
-  },
+  chartData: { type: Object, required: true },
   chartOptions: {
     type: Object,
     default: () => ({
       responsive: true,
-      maintainAspectRatio: false, // Important pour contrôler la taille via CSS
-      scales: {
-        y: {
-          beginAtZero: true,
-          ticks: {
-            // Assurer que les ticks sont des entiers si les comptes sont toujours des entiers
-            precision: 0 
-          }
-        }
-      },
+      maintainAspectRatio: false,
       plugins: {
-        legend: {
-          display: true, // Vous pouvez le cacher si le titre du graphique est suffisant
+        legend: { display: true },
+        datalabels: {
+          anchor: 'end',
+          align: 'top',
+          color: '#34495e',
+          font: { weight: 'bold', size: 14 },
+          formatter: Math.round,
         },
       },
+      scales: {
+        y: { beginAtZero: true, ticks: { precision: 0 } }
+      }
     }),
   },
 });

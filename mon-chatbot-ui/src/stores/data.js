@@ -15,6 +15,7 @@ export const useDataStore = defineStore('data', {
     adminFilieres: [],
     adminModules: [],
     adminActivites: [],
+    adminUsers: [], // NOUVEAU: Pour la gestion des utilisateurs
 
     isLoading: false,
     error: null,
@@ -56,37 +57,37 @@ export const useDataStore = defineStore('data', {
     },
 
     async fetchModulesByFiliere(filiereId) {
-        if (!filiereId) {
-            this.modules = []; // Pour les dropdowns
-            return;
-        }
-        this.isLoading = true;
-        this.error = null;
-        try {
-            const response = await api.getModulesByFiliere(filiereId);
-            this.modules = response.data; // Pour les dropdowns
-        } catch (err) {
-            this.error = "Impossible de charger les modules par filière.";
-            console.error("Erreur fetchModulesByFiliere:", err);
-            this.modules = [];
-        } finally {
-            this.isLoading = false;
-        }
+      if (!filiereId) {
+        this.modules = []; // Pour les dropdowns
+        return;
+      }
+      this.isLoading = true;
+      this.error = null;
+      try {
+        const response = await api.getModulesByFiliere(filiereId);
+        this.modules = response.data; // Pour les dropdowns
+      } catch (err) {
+        this.error = "Impossible de charger les modules par filière.";
+        console.error("Erreur fetchModulesByFiliere:", err);
+        this.modules = [];
+      } finally {
+        this.isLoading = false;
+      }
     },
 
     async fetchActivitesForDropdown() { // Renommée pour clarifier son usage
-        this.isLoading = true;
-        this.error = null;
-        try {
-            const response = await api.getActivites();
-            this.activites = response.data; // Pour les dropdowns
-        } catch (err) {
-            this.error = "Impossible de charger les activités pour les listes déroulantes.";
-            console.error("Erreur fetchActivitesForDropdown:", err);
-            this.activites = [];
-        } finally {
-            this.isLoading = false;
-        }
+      this.isLoading = true;
+      this.error = null;
+      try {
+        const response = await api.getActivites();
+        this.activites = response.data; // Pour les dropdowns
+      } catch (err) {
+        this.error = "Impossible de charger les activités pour les listes déroulantes.";
+        console.error("Erreur fetchActivitesForDropdown:", err);
+        this.activites = [];
+      } finally {
+        this.isLoading = false;
+      }
     },
 
     // --- ACTIONS DE CHARGEMENT POUR L'ADMINISTRATION (LISTES COMPLÈTES) ---
@@ -147,7 +148,7 @@ export const useDataStore = defineStore('data', {
       try {
         const response = await api.getActivites(); // Endpoint qui retourne TOUTES les activités
         this.adminActivites = response.data;
-         // Optionnel: si les dropdowns doivent aussi avoir la liste complète au démarrage
+        // Optionnel: si les dropdowns doivent aussi avoir la liste complète au démarrage
         if (this.activites.length === 0) this.activites = response.data;
       } catch (err) {
         this.error = "Impossible de charger les activités pour l'administration.";
@@ -220,6 +221,68 @@ export const useDataStore = defineStore('data', {
     async deleteActivite(id) {
       await api.deleteActivite(id);
       await this.fetchAdminAllActivites(true);
+    },
+    // --- CRUD Utilisateurs (NOUVEAU) ---
+    async fetchAdminAllUsers(force = false) {
+      if (this.adminUsers.length > 0 && !force) return;
+      this.isLoading = true;
+      this.error = null;
+      try {
+        const response = await api.getAllUsers();
+        this.adminUsers = response.data;
+      } catch (err) {
+        this.error = "Impossible de charger les utilisateurs pour l'administration.";
+        console.error("Erreur fetchAdminAllUsers:", err);
+        this.adminUsers = [];
+      } finally {
+        this.isLoading = false;
+      }
+    },
+
+    async createUser(userData) {
+      // userData: { username, email, password, full_name, role (optionnel) }
+      const response = await api.createUser(userData);
+      await this.fetchAdminAllUsers(true); // Recharger la liste
+      return response.data;
+    },
+
+    async updateUser(userId, userData) {
+      // userData: { username?, email?, full_name?, password?, role? }
+      // Si password est une chaîne vide, il vaut mieux ne pas l'envoyer ou que le backend l'ignore.
+      // Pour cet exemple, on envoie ce qui est dans userData.
+      const response = await api.updateUser(userId, userData);
+      // Mettre à jour l'utilisateur localement ou re-fetcher
+      // Pour la simplicité, re-fetcher toute la liste est plus facile à gérer
+      await this.fetchAdminAllUsers(true);
+      return response.data;
+    },
+
+    async deleteUser(userId) {
+      await api.deleteUser(userId);
+      await this.fetchAdminAllUsers(true); // Recharger la liste
+    },
+
+    async activateUser(userId) {
+      const response = await api.activateUser(userId);
+      // Mettre à jour l'utilisateur spécifique dans adminUsers pour éviter un re-fetch complet
+      const index = this.adminUsers.findIndex(u => u.id === userId);
+      if (index !== -1) {
+        this.adminUsers[index] = { ...this.adminUsers[index], ...response.data };
+      } else {
+        await this.fetchAdminAllUsers(true); // Fallback si non trouvé
+      }
+      return response.data;
+    },
+
+    async deactivateUser(userId) {
+      const response = await api.deactivateUser(userId);
+      const index = this.adminUsers.findIndex(u => u.id === userId);
+      if (index !== -1) {
+        this.adminUsers[index] = { ...this.adminUsers[index], ...response.data };
+      } else {
+        await this.fetchAdminAllUsers(true); // Fallback
+      }
+      return response.data;
     },
   },
 });

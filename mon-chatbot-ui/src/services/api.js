@@ -1,21 +1,20 @@
+// api.js (ajout des fonctions pour les utilisateurs)
 import axios from 'axios';
 
-
 // Configurez l'URL de base de votre API.
-// Assurez-vous que votre backend FastAPI est accessible à cette adresse.
 const apiClient = axios.create({
-  baseURL: 'http://localhost:8000', // Remplacez par l'URL de votre backend
+  baseURL: 'http://localhost:8000', // Assurez-vous que c'est la bonne URL
   // headers: {
-  //   'Content-Type': 'application/json',
+  //   'Content-Type': 'application/json', // Souvent géré par Axios, mais peut être utile
   // },
 });
 
-// Intercepteur pour ajouter le token d'authentification (si nécessaire)
+// Intercepteur pour ajouter le token d'authentification
 apiClient.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('authToken'); // Ou récupérez-le depuis Pinia
+    const token = localStorage.getItem('authToken'); // Ou depuis Pinia
     if (token) {
-      config.headers.Authorization = `Bearer ${token}`; // Ajustez selon votre backend
+      config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
   },
@@ -27,20 +26,40 @@ apiClient.interceptors.request.use(
 export default {
   // Authentification
   login(credentials) {
-    //console.log('api.js service - Credentials envoyées à apiClient.post:', credentials);
     return apiClient.post('/login', credentials);
   },
   register(userData) {
-    //console.log('api.js service - User data envoyées à apiClient.post:', userData);
     return apiClient.post('/register', userData);
   },
-
-  // changePassword
   changePassword(data) {
     return apiClient.post('/change_password', data, {
       headers: { 'Content-Type': 'application/json' }
     });
   },
+
+  // --- Gestion des Utilisateurs (NOUVEAU) ---
+  createUser(userData) { // userData: { username, email, password, full_name, role (optionnel) }
+    return apiClient.post('/CreateUser/', userData);
+  },
+  getAllUsers() {
+    return apiClient.get('/GetUsers/');
+  },
+  getUser(userId) {
+    return apiClient.get(`/GetUser/${userId}`);
+  },
+  updateUser(userId, userData) { // userData: { username?, email?, full_name?, password?, role? }
+    return apiClient.put(`/UpdateUser/${userId}`, userData);
+  },
+  deleteUser(userId) {
+    return apiClient.delete(`/DelUser/${userId}`);
+  },
+  activateUser(userId) {
+    return apiClient.patch(`/users/${userId}/activate`);
+  },
+  deactivateUser(userId) {
+    return apiClient.patch(`/users/${userId}/deactivate`);
+  },
+  // --- FIN Gestion des Utilisateurs ---
 
   // --- Gestion des Départements ---
   getDepartements() {
@@ -49,10 +68,10 @@ export default {
   getDepartement(id) {
     return apiClient.get(`/departements/${id}`);
   },
-  addDepartement(data) { // data: { nom: string }
+  addDepartement(data) {
     return apiClient.post('/departements', data);
   },
-  updateDepartement(id, data) { // data: { nom: string }
+  updateDepartement(id, data) {
     return apiClient.put(`/departements/${id}`, data);
   },
   deleteDepartement(id) {
@@ -69,10 +88,10 @@ export default {
   getFilieresByDepartement(depId) {
     return apiClient.get(`/filieresByDepartement/${depId}`);
   },
-  addFiliere(data) { // data: { nom: string, departement_id: int }
+  addFiliere(data) {
     return apiClient.post('/filieres', data);
   },
-  updateFiliere(id, data) { // data: { nom: string, departement_id: int }
+  updateFiliere(id, data) {
     return apiClient.put(`/filieres/${id}`, data);
   },
   deleteFiliere(id) {
@@ -89,10 +108,10 @@ export default {
   getModulesByFiliere(filiereId) {
     return apiClient.get(`/modulesByFiliere/${filiereId}`);
   },
-  addModule(data) { // data: { nom: string, filiere_id: int }
+  addModule(data) {
     return apiClient.post('/modules', data);
   },
-  updateModule(id, data) { // data: { nom: string, filiere_id: int }
+  updateModule(id, data) {
     return apiClient.put(`/modules/${id}`, data);
   },
   deleteModule(id) {
@@ -106,10 +125,10 @@ export default {
   getActivite(id) {
     return apiClient.get(`/activites/${id}`);
   },
-  addActivite(data) { // data: { nom: string }
+  addActivite(data) {
     return apiClient.post('/activites', data);
   },
-  updateActivite(id, data) { // data: { nom: string }
+  updateActivite(id, data) {
     return apiClient.put(`/activites/${id}`, data);
   },
   deleteActivite(id) {
@@ -118,12 +137,9 @@ export default {
 
   // Chat
   sendMessage(chatData) {
-    //console.log("api.js - sendMessage - Envoi vers /chat avec payload:", chatData); // Log du payload
-    //chatData: { message, departement_id, filiere_id, module_id, activite_id, profile_id, user_id }
     return apiClient.post('/chat', chatData);
   },
   getChatHistory(params) {
-    //params: { profile_id, user_id, departement_id, filiere_id}
     return apiClient.get('/chat/history', { params });
   },
 
@@ -131,19 +147,10 @@ export default {
   ingestDocument(formDataPayload) {
     return apiClient.post('/ingest', formDataPayload, {
       headers: {
-        // Forcer le Content-Type correct pour cette requête spécifique
-        // Mettre 'Content-Type': undefined ou null peut aussi fonctionner pour laisser Axios le gérer
         'Content-Type': 'multipart/form-data',
       }
     });
   },
-  // ingestDocument(ingestData) {
-  //   // ingestData: { base_filename, file_path, departement_id, ... }
-  //   // Note: Pour l'upload de fichiers, vous pourriez avoir besoin de 'multipart/form-data'
-  //   // Pour l'instant, on suppose que file_path est une chaîne.
-  //   // Si vous uploadez le fichier réel, la configuration d'axios sera différente.
-  //   return apiClient.post('/ingest', ingestData);
-  // },
   getIngestedDocuments() {
     return apiClient.get('/ingested');
   },
@@ -152,18 +159,8 @@ export default {
   },
 
   // Ressources (Départements, Filières, Modules, Activités)
-  getDepartements() {
-    //console.log("FRONTEND (api.js): Appel de getDepartements");
-    return apiClient.get('/departements');
-  },
-  getFilieresByDepartement(depId) {
-    return apiClient.get(`/filieresByDepartement/${depId}`);
-  },
-  getModulesByFiliere(filiereId) {
-    return apiClient.get(`/modulesByFiliere/${filiereId}`);
-  },
-  getActivites() { // Supposant un endpoint générique, adaptez si nécessaire
-    return apiClient.get('/activites');
-  },
-  // Ajoutez ici les autres méthodes pour POST, PUT, DELETE des ressources si nécessaire depuis le front-end
+  // getDepartements() est déjà défini plus haut
+  // getFilieresByDepartement(depId) est déjà défini plus haut
+  // getModulesByFiliere(filiereId) est déjà défini plus haut
+  // getActivites() est déjà défini plus haut
 };

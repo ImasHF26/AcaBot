@@ -2,7 +2,7 @@
   <div class="register-container">
     <h2>Inscription</h2>
     <RegisterForm />
-     <p>Déjà un compte? <router-link to="/login">Connectez-vous ici</router-link></p>
+     <!-- <p>Déjà un compte? <router-link to="/login">Connectez-vous ici</router-link></p> -->
   </div>
 </template>
 
@@ -12,7 +12,7 @@ import RegisterForm from '@/components/Auth/RegisterForm.vue';
 
 <style scoped>
 .register-container {
-  max-width: 450px;
+  max-width: 100%;
   margin: 50px auto;
   padding: 20px;
   border: 1px solid #ccc;

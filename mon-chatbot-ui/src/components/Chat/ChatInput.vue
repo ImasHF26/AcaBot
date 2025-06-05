@@ -1,187 +1,146 @@
 <template>
   <form @submit.prevent="submitMessage" class="chat-input-form">
-    <!-- <div class="filters-container">
-      <select v-model="selectedDepartement" @change="onDepartementChange" class="filter-select">
-        <option :value="null">Choisir Département</option>
-        <option v-for="dep in filteredDepartements" :key="dep.id" :value="dep.id">
-          {{ dep.nom }}
-        </option>
-      </select>
-
-      <select v-model="selectedFiliere" @change="onFiliereChange" :disabled="!selectedDepartement || dataStore.isLoading" class="filter-select">
-        <option :value="null">Choisir Filière</option>
-        <option v-for="fil in filieresOptions" :key="fil.id" :value="fil.id">
-          {{ fil.nom }}
-        </option>
-      </select>
-
-      <select v-model="selectedModule" @change="onModuleChange" :disabled="!selectedFiliere || dataStore.isLoading" class="filter-select">
-        <option :value="null">Choisir Module</option>
-         <option v-for="mod in modulesOptions" :key="mod.id" :value="mod.id">
-          {{ mod.nom }}
-        </option>
-      </select>
-
-      <select v-model="selectedActivite" :disabled="dataStore.isLoading" class="filter-select">
-        <option :value="null">Choisir Activité</option>
-         <option v-for="act in filteredActivites" :key="act.id" :value="act.id">
-          {{ act.nom }}
-        </option>
-      </select>
-    </div> -->
     <div class="input-area">
       <input
         type="text"
         v-model="newMessage"
-        placeholder="Tapez votre message ici..."
+        placeholder="Tapez votre message ici…"
         class="message-input"
+        ref="textInput"
+        autocomplete="off"
       />
+      <button 
+        type="button" 
+        @click="toggleSpeechRecognition"
+        class="voice-button"
+        :class="{ 'active': isListening }"
+        title="Activer la reconnaissance vocale"
+        aria-label="Reconnaissance vocale"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+          <line x1="12" y1="19" x2="12" y2="23"></line>
+          <line x1="8" y1="23" x2="16" y2="23"></line>
+        </svg>
+      </button>
       <button type="submit" class="send-button">Envoyer</button>
+    </div>
+    
+    <div v-if="isListening" class="speech-feedback">
+      <div class="pulse-ring"></div>
+      <p>🎤 En écoute… Parlez maintenant</p>
+      <p class="transcript-preview">{{ interimTranscript || "Détection en cours…" }}</p>
     </div>
   </form>
 </template>
 
 <script setup>
-import { ref, watch, onMounted, computed } from 'vue'; // Ajout de computed
+import { ref, onMounted, onBeforeUnmount, computed } from 'vue';
 import { useDataStore } from '@/stores/data';
 import { useAuthStore } from '@/stores/auth';
 
 const authStore = useAuthStore();
 const isInvite = computed(() => authStore.isInvite);
-
 const emit = defineEmits(['send-message']);
-
 const dataStore = useDataStore();
 
 const newMessage = ref('');
-const selectedDepartement = ref(null);
-const selectedFiliere = ref(null);
-const selectedModule = ref(null);
-const selectedActivite = ref(null);
+const textInput = ref(null);
 
-// Propriétés calculées pour les options des selects
-// Celles-ci liront directement depuis les états du store prévus pour les dropdowns
-const departementsOptions = computed(() => dataStore.departements);
+// Reconnaissance vocale
+const isListening = ref(false);
+const recognition = ref(null);
+const interimTranscript = ref('');
+const finalTranscript = ref('');
 
-const filteredDepartements = computed(() => {
-  if (authStore.isInvite) {
-    return departementsOptions.value.filter(dep => dep.nom === 'Scolarité')
+const initSpeechRecognition = () => {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    console.error("Speech Recognition API non supportée dans ce navigateur");
+    return;
   }
-  return departementsOptions.value
-})
+  recognition.value = new SpeechRecognition();
+  recognition.value.continuous = true;
+  recognition.value.interimResults = true;
+  recognition.value.lang = 'fr-FR';
 
-const filieresOptions = computed(() => dataStore.filieres);
-const modulesOptions = computed(() => dataStore.modules);
-const activitesOptions = computed(() => dataStore.activites);
+  recognition.value.onresult = (event) => {
+    interimTranscript.value = '';
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      const transcript = event.results[i][0].transcript;
+      if (event.results[i].isFinal) {
+        finalTranscript.value += transcript + ' ';
+        newMessage.value = finalTranscript.value.trim();
+      } else {
+        interimTranscript.value += transcript;
+      }
+    }
+  };
 
-const filteredActivites = computed(() => {
-  if (authStore.isInvite) {
-    return activitesOptions.value.filter(act => act.nom === 'Inscription')
-  }
-  return activitesOptions.value
-})
+  recognition.value.onerror = (event) => {
+    console.error('Erreur de reconnaissance:', event.error);
+    stopRecognition();
+  };
 
+  recognition.value.onend = () => {
+    if (isListening.value) {
+      recognition.value.start();
+    }
+  };
+};
 
-onMounted(async () => {
-  console.log("ChatInput.vue: Component Mounted.");
-  // Charger les départements initiaux si la liste est vide
-  if (dataStore.departements.length === 0) {
-    console.log("ChatInput.vue: Fetching departements for dropdown...");
-    await dataStore.fetchDepartementsForDropdown();
-  }
-  // Charger les activités initiales si la liste est vide
-  // (en supposant qu'elles ne dépendent pas d'une sélection précédente au montage)
-  if (dataStore.activites.length === 0) {
-    console.log("ChatInput.vue: Fetching activites for dropdown...");
-    await dataStore.fetchActivitesForDropdown(); // <--- CORRECTION ICI
-  }
-});
-
-watch(selectedDepartement, async (newDepId) => {
-  console.log("ChatInput.vue: selectedDepartement changed to", newDepId);
-  selectedFiliere.value = null;
-  selectedModule.value = null;
-  selectedActivite.value = null; // Réinitialiser aussi l'activité
-  if (newDepId) {
-    await dataStore.fetchFilieresByDepartement(newDepId);
+const toggleSpeechRecognition = () => {
+  if (isListening.value) {
+    stopRecognition();
   } else {
-    dataStore.filieres = []; // Vider la liste des filières dans le store
-    dataStore.modules = [];  // Vider aussi les modules
-    // dataStore.activites = []; // Vider les activités si elles dépendent fortement du chemin
+    startRecognition();
+  }
+};
+
+const startRecognition = () => {
+  if (!recognition.value) {
+    initSpeechRecognition();
+  }
+  finalTranscript.value = '';
+  interimTranscript.value = '';
+  isListening.value = true;
+  recognition.value.start();
+  textInput.value.focus();
+};
+
+const stopRecognition = () => {
+  if (recognition.value) {
+    recognition.value.stop();
+  }
+  isListening.value = false;
+  if (interimTranscript.value && !finalTranscript.value) {
+    newMessage.value = interimTranscript.value;
+  }
+};
+
+onBeforeUnmount(() => {
+  if (recognition.value) {
+    recognition.value.stop();
   }
 });
-
-watch(selectedFiliere, async (newFiliereId) => {
-  console.log("ChatInput.vue: selectedFiliere changed to", newFiliereId);
-  selectedModule.value = null;
-  selectedActivite.value = null; // Réinitialiser aussi l'activité
-  if (newFiliereId) {
-    await dataStore.fetchModulesByFiliere(newFiliereId);
-    // Si les activités dépendent directement de la filière et non du module:
-    // await dataStore.fetchActivitesByFiliere(newFiliereId); // Vous auriez besoin de cette action
-  } else {
-    dataStore.modules = [];
-    // dataStore.activites = [];
-  }
-});
-
-watch(selectedModule, async (newModuleId) => {
-  console.log("ChatInput.vue: selectedModule changed to", newModuleId);
-  selectedActivite.value = null; // Toujours réinitialiser l'activité
-  if (newModuleId) {
-    // Si les activités DOIVENT être rechargées/filtrées en fonction du module:
-    // 1. Assurez-vous que fetchActivitesForDropdown charge TOUTES les activités.
-    // 2. Filtrez localement ou créez une action fetchActivitesByModule.
-    // Pour l'instant, on suppose que dataStore.activites contient déjà ce qu'il faut
-    // ou que fetchActivitesForDropdown a été appelé.
-    // Si vous avez besoin de recharger spécifiquement pour ce module :
-    // await dataStore.fetchActivitesByModule(newModuleId); // Vous auriez besoin de cette action
-    // Si fetchActivitesForDropdown est suffisant (charge tout et vous filtrez via computed ou ici)
-    // ou si les activités sont indépendantes du module une fois le module sélectionné :
-    // Pas d'appel nécessaire ici si activitesOptions est déjà bien peuplé.
-    // Si vous voulez forcer un rechargement de toutes les activités (moins efficace) :
-    // await dataStore.fetchActivitesForDropdown();
-    console.log("ChatInput.vue: Activites disponibles après sélection module:", activitesOptions.value);
-  } else {
-    // Si aucun module n'est sélectionné, que faire des activités ?
-    // Si elles sont globales, ne rien faire. Si elles dépendent du module, les vider.
-    // dataStore.activites = []; // Attention, cela affecte l'état global.
-  }
-});
-
-
-// Les @change sur les selects ne sont plus nécessaires si les watchers font le travail.
-// Si vous les gardez, assurez-vous qu'ils ne dupliquent pas la logique.
-const onDepartementChange = () => { /* Logique déjà dans le watcher selectedDepartement */ };
-const onFiliereChange = () => { /* Logique déjà dans le watcher selectedFiliere */ };
-const onModuleChange = () => { /* Logique déjà dans le watcher selectedModule */ };
-
 
 const submitMessage = () => {
   if (newMessage.value.trim() === '') return;
-
+  const userid = localStorage.getItem('user_id');
+  const profileid = localStorage.getItem('profile_id');
   const departementId = localStorage.getItem('departement_id');
   const filiereId = localStorage.getItem('filiere_id');
-
   const payload = {
     message: newMessage.value,
+    selectedUser: userid,
+    selectedProfile: profileid,
     selectedDepartement: departementId,
     selectedFiliere: filiereId,
-    // selectedModule: selectedModule.value,
-    // selectedActivite: selectedActivite.value,
   };
-
-  // Log des informations avant envoi
-  console.log("Envoi des données :", {
-    Message: payload.message,
-    Département: payload.selectedDepartement,
-    Filière: payload.selectedFiliere,
-    Timestamp: new Date().toISOString(),
-    Source: 'submitMessage()'
-  });
-
   emit('send-message', payload);
   newMessage.value = '';
+  stopRecognition();
 };
 </script>
 
@@ -190,54 +149,129 @@ const submitMessage = () => {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: 10px;
-  border: 1px solid #ccc;
-  border-radius: 8px;
-  background-color: #fff;
-}
-
-.filters-container {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.filter-select {
-  padding: 8px 12px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  background-color: white;
-  flex-grow: 1;
-  min-width: 150px;
-}
-
-.filter-select:disabled {
-  background-color: #e9ecef;
-  cursor: not-allowed;
+  padding: 16px 14px 10px 14px;
+  border: 1.5px solid #e0e0e0;
+  border-radius: 12px;
+  background: #f8fafc;
+  box-shadow: 0 2px 8px rgba(52,152,219,0.07);
 }
 
 .input-area {
   display: flex;
   gap: 10px;
+  align-items: center;
 }
 
 .message-input {
   flex-grow: 1;
-  padding: 10px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
+  padding: 12px;
+  border: 1.5px solid #d6eaff;
+  border-radius: 7px;
+  font-size: 1em;
+  background: #fff;
+  transition: border-color 0.2s;
+}
+.message-input:focus {
+  border-color: #3498db;
+  outline: none;
 }
 
 .send-button {
-  padding: 10px 15px;
-  background-color: #007bff;
+  padding: 11px 18px;
+  background-color: #27ae60;
   color: white;
   border: none;
-  border-radius: 4px;
+  border-radius: 7px;
   cursor: pointer;
+  font-size: 1em;
+  font-weight: 600;
+  transition: background 0.2s;
+}
+.send-button:hover {
+  background-color: #219150;
 }
 
-.send-button:hover {
-  background-color: #0056b3;
+.voice-button {
+  padding: 10px;
+  background-color: #eaf2fb;
+  border: 1.5px solid #d6eaff;
+  border-radius: 7px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s, border-color 0.2s;
+}
+.voice-button:hover {
+  background-color: #d6eaff;
+}
+.voice-button.active {
+  background-color: #4CAF50;
+  color: white;
+  border-color: #4CAF50;
+}
+
+.speech-feedback {
+  margin-top: 10px;
+  padding: 12px 10px 10px 10px;
+  background-color: #eaf2fb;
+  border-radius: 8px;
+  text-align: center;
+  position: relative;
+  min-height: 56px;
+  box-shadow: 0 1px 4px rgba(52,152,219,0.08);
+}
+
+.pulse-ring {
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 32px;
+  height: 32px;
+  border: 3px solid #4CAF50;
+  border-radius: 50%;
+  animation: pulse 1.5s infinite;
+}
+
+.transcript-preview {
+  margin-top: 5px;
+  font-style: italic;
+  color: #217dbb;
+  font-size: 1em;
+}
+
+@keyframes pulse {
+  0% {
+    transform: translateX(-50%) scale(0.9);
+    opacity: 0.7;
+  }
+  70% {
+    transform: translateX(-50%) scale(1.3);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(-50%) scale(0.9);
+    opacity: 0;
+  }
+}
+
+@media (max-width: 600px) {
+  .chat-input-form {
+    padding: 8px 4px 6px 4px;
+    border-radius: 8px;
+  }
+  .input-area {
+    gap: 6px;
+  }
+  .send-button, .voice-button {
+    padding: 8px 10px;
+    font-size: 0.95em;
+    border-radius: 6px;
+  }
+  .message-input {
+    padding: 8px;
+    border-radius: 6px;
+  }
 }
 </style>

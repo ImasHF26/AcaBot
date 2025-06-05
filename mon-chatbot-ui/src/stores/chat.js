@@ -18,11 +18,15 @@ export const useChatStore = defineStore('chat', {
     },
     async sendMessage(payload) {
       const authStore = useAuthStore();
-      if (!authStore.isAuthenticated || !authStore.userId || !authStore.profileId /* || !authStore.isInvite */) { // J'ai commenté authStore.is car son rôle n'était pas clair pour l'envoi de message
+
+      if (!authStore.isAuthenticated) {
         this.sendMessageError = "Utilisateur non authentifié.";
+        
         console.error("sendMessage: User not authenticated or missing IDs.");
         return;
       }
+
+      console.log("sendMessage payload:",payload);
 
       this.addMessage({ text: payload.message, sender: 'user' });
       this.isLoadingMessages = true;
@@ -34,8 +38,8 @@ export const useChatStore = defineStore('chat', {
         filiere_id: payload.filiere_id || null,
         module_id: payload.module_id || null,
         activite_id: payload.activite_id || null,
-        profile_id: authStore.profileId,
-        user_id: authStore.userId,
+        profile_id: payload.profileId || null,
+        user_id: payload.userId || null,
       };
 
       try {

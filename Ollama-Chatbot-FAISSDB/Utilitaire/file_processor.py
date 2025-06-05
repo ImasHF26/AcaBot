@@ -5,6 +5,7 @@ import json
 import PyPDF2
 from docx import Document
 import io # Nécessaire pour lire depuis des bytes
+from pptx import Presentation
 
 from Utilitaire.EDA_Cleaner import TextPipeline, TextCleaner # Assurez-vous que c'est le bon import
 
@@ -43,6 +44,13 @@ class FileProcessor:
                 json_string = file_content_bytes.decode('utf-8')
                 data = json.loads(json_string)
                 content_str = json.dumps(data, ensure_ascii=False) # Pour le traitement ultérieur
+            elif file_extension == '.pptx':
+                pptx_stream = io.BytesIO(file_content_bytes)
+                prs = Presentation(pptx_stream)
+                for slide in prs.slides:
+                    for shape in slide.shapes:
+                        if hasattr(shape, "text"):
+                            content_str += shape.text + "\n"
             else:
                 raise ValueError(f"Type de fichier non pris en charge : {file_extension} pour {base_filename}")
 

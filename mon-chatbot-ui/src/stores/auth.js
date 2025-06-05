@@ -150,25 +150,6 @@ export const useAuthStore = defineStore('auth', {
         this.token = null;
       }
     },
-activateInviteMode() {
-    // Configuration du mode invité
-    this.isInvite = true;
-    this.user = {
-      departement_id: 1, // Département par défaut
-      filiere_id: 3, // Filière par défaut
-    };
-
-    // Stockage minimal en localStorage
-    localStorage.setItem('departement_id', '1');
-    localStorage.setItem('filiere_id', '3');
-
-    // Pas de token pour les invités
-    localStorage.removeItem('authToken');
-    this.token = null;
-
-    // Redirection vers le chat
-    router.push({ name: 'Chat' });
-  },
     
   },
 });

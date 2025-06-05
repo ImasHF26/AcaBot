@@ -146,7 +146,7 @@ class RAGChatbot:
 
     def find_relevant_context(self, user_query,
                               departement_id=None, filiere_id=None,
-                              top_k=3, similarity_threshold=0.65):
+                              top_k=3, similarity_threshold=0.55):
         """
         Recherche les chunks les plus pertinents pour une requête utilisateur,
         en utilisant les ID Faiss globaux filtrés et en reconstruisant les vecteurs correctement.
@@ -288,7 +288,7 @@ class RAGChatbot:
         cleaned = re.sub(r"</?think>", "", cleaned, flags=re.IGNORECASE)
         return cleaned.strip()
 
-    def generate_response(self, user_query, departement_id, filiere_id):
+    def generate_response(self, user_query,user_id,profile_id, departement_id, filiere_id):
         # Appelle votre méthode pour trouver le contexte pertinent
         context_chunks = self.find_relevant_context(
             user_query, departement_id, filiere_id, top_k=3, similarity_threshold=0.55
@@ -324,11 +324,10 @@ class RAGChatbot:
         llm_raw_response = self.ollama_api.chat_with_ollama(prompt_text)
         cleaned_llm_response = self.clean_llm_response(llm_raw_response)
 
-        # FilterManager.save_chat_history(
-        #     user_id=user_id, question=user_query, answer=cleaned_llm_response,
-        #     departement_id=departement_id, filiere_id=filiere_id, module_id=module_id,
-        #     activite_id=activite_id, profile_id=profile_id
-        #)
+        FilterManager.save_chat_history(
+            user_id=user_id, question=user_query, answer=cleaned_llm_response,
+            departement_id=departement_id, filiere_id=filiere_id, profile_id=profile_id
+        )
         return cleaned_llm_response
 
     def simulate_typing(self, text, delay=0.009):
