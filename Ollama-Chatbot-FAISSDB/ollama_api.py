@@ -10,7 +10,8 @@ class OllamaAPI:
                         max_tokens=4096,
                         repeat_penalty=1.1,
                         top_p=0.9,
-                        temperature=0.7):
+                        temperature=0.7,
+                        stop=None):
         """
         Envoie une requête à l'API Ollama pour générer une réponse.
         """
@@ -22,7 +23,9 @@ class OllamaAPI:
                       "max_tokens": max_tokens, 
                       "repeat_penalty": repeat_penalty, 
                       "top_p": top_p, 
-                      "temperature": temperature},
+                      "temperature": temperature,
+                      "stop": stop
+                    },
 
                 stream=True  # Active le streaming
             )

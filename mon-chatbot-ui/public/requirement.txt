@@ -2,3 +2,4 @@ npm install chartjs-plugin-datalabels
 npm install vuetify@^3.0.0 sass sass-loader@^13.0.0
 npm install @mdi/font
 npm install vite-plugin-vuetify --save-dev
+npm install marked

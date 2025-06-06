@@ -3,7 +3,7 @@
     <div
       style="display: flex; justify-content: space-between; align-items: center"
     >
-      <h1>Chatbot</h1>
+      <h3>Chatbot</h3>
       <!-- Le lien de connexion pour invité peut rester si vous le souhaitez ici -->
       <!-- <div class="navbar-login" v-if="authStore.isInvite">
         <router-link to="/login" class="nav-link login-link">Connexion</router-link>
@@ -37,6 +37,7 @@ import { useAuthStore } from "@/stores/auth"; // authStore est utilisé pour isI
 const chatStore = useChatStore();
 const dataStore = useDataStore();
 const authStore = useAuthStore(); // Initialiser authStore
+
 
 const handleSendMessage = (payload) => {
   console.log("payload",payload);
@@ -75,19 +76,26 @@ const isInvite = computed(() => authStore.isInvite); // Assurez-vous que isInvit
 }
 .navbar-login .login-link {
   background-color: #5cb85c;
-  padding: 8px 15px;
+  padding: 8px 10px;
 }
 .navbar-login .login-link:hover {
   background-color: #4cae4c;
 }
 
 .chat-view-container {
-  padding: 20px;
+  padding: 10px;
+  max-width: 1400px; /* Limite la largeur pour une meilleure lisibilité */
+  margin: 0 auto; /* Centre le conteneur */
+  background-color: #f8f9fa; /* Couleur de fond claire pour le conteneur */
+  border-radius: 8px; /* Coins arrondis pour le conteneur */
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1); /* Légère ombre pour le conteneur */
+  font-family: Arial, sans-serif; /* Police de caractères pour le conteneur */
+  color: #333; /* Couleur de texte sombre pour une meilleure lisibilité */
 }
 .chat-layout {
   display: flex; /* Conservez flex si vous prévoyez d'autres éléments à côté de chat-main à l'avenir */
-  gap: 20px;
-  margin-top: 20px;
+  gap: 10px;
+  margin-top: 10px;
 }
 .chat-main {
   flex: 1; /* Prendra toute la largeur disponible si .chat-sidebar est parti */

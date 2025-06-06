@@ -32,7 +32,7 @@ export const useChatStore = defineStore('chat', {
       this.isLoadingMessages = true;
       this.sendMessageError = null;
 
-      console.log("Chat.js ",payload.user_id)
+      //console.log("Chat.js ",payload.user_id)
       const chatRequestData = {
         message: payload.message,
         departement_id: parseInt(payload.departement_id) || null,

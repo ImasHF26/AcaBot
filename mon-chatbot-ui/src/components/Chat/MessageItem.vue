@@ -1,12 +1,22 @@
 <template>
-  <div class="message-item" :class="{ 'user-message': isUser, 'bot-message': !isUser, 'error-message-bubble': message.isError }">
-    <p class="message-text">{{ message.text }}</p>
-    <span class="message-timestamp">{{ new Date(message.timestamp).toLocaleTimeString() }}</span>
+  <div
+    class="message-item"
+    :class="{
+      'user-message': isUser,
+      'bot-message': !isUser,
+      'error-message-bubble': message.isError
+    }"
+  >
+    <div class="message-text" v-html="formattedText"></div>
+    <span class="message-timestamp">
+      {{ new Date(message.timestamp).toLocaleTimeString() }}
+    </span>
   </div>
 </template>
 
 <script setup>
 import { computed } from 'vue';
+import { marked } from 'marked';
 
 const props = defineProps({
   message: {
@@ -16,6 +26,12 @@ const props = defineProps({
 });
 
 const isUser = computed(() => props.message.sender === 'user');
+
+// Markdown rendering
+const formattedText = computed(() => {
+  // Optionnel : tu peux personnaliser marked ici si besoin
+  return marked.parse(props.message.text || '');
+});
 </script>
 
 <style scoped>
@@ -30,14 +46,14 @@ const isUser = computed(() => props.message.sender === 'user');
 .user-message {
   background-color: #007bff;
   color: white;
-  margin-left: auto; /* Aligne à droite */
+  margin-left: auto;
   border-bottom-right-radius: 5px;
 }
 
 .bot-message {
   background-color: #e9ecef;
   color: #333;
-  margin-right: auto; /* Aligne à gauche */
+  margin-right: auto;
   border-bottom-left-radius: 5px;
 }
 
@@ -50,6 +66,7 @@ const isUser = computed(() => props.message.sender === 'user');
 .message-text {
   margin: 0;
   padding: 0;
+  /* Markdown gère les retours à la ligne et la mise en forme */
 }
 
 .message-timestamp {
@@ -57,7 +74,7 @@ const isUser = computed(() => props.message.sender === 'user');
   font-size: 0.75em;
   margin-top: 5px;
   text-align: right;
-  color: inherit; /* Hérite la couleur du parent pour un meilleur contraste */
+  color: inherit;
   opacity: 0.8;
 }
 
@@ -65,6 +82,29 @@ const isUser = computed(() => props.message.sender === 'user');
   color: #e0e0e0;
 }
 .bot-message .message-timestamp {
-   color: #6c757d;
+  color: #6c757d;
+}
+
+/* Optionnel : styles pour le markdown */
+.message-text h1,
+.message-text h2,
+.message-text h3 {
+  margin: 0.5em 0 0.2em 0;
+}
+.message-text ul,
+.message-text ol {
+  margin: 0.5em 0 0.5em 1.2em;
+}
+.message-text code {
+  background: #f4f4f4;
+  padding: 2px 4px;
+  border-radius: 4px;
+  font-size: 0.95em;
+}
+.message-text pre {
+  background: #f4f4f4;
+  padding: 8px;
+  border-radius: 6px;
+  overflow-x: auto;
 }
 </style>
