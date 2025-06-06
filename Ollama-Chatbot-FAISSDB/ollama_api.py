@@ -5,14 +5,25 @@ class OllamaAPI:
     def __init__(self, api_url="http://localhost:11434/api/generate"):
         self.api_url = api_url
 
-    def chat_with_ollama(self, prompt, model="deepseek-r1:8b"):
+    def chat_with_ollama(self, prompt,
+                        model="gemma2:9b",
+                        max_tokens=4096,
+                        repeat_penalty=1.1,
+                        top_p=0.9,
+                        temperature=0.7):
         """
         Envoie une requête à l'API Ollama pour générer une réponse.
         """
         try:
             response = requests.post(
                 self.api_url,
-                json={"model": model, "prompt": prompt},
+                json={"model": model, 
+                      "prompt": prompt, 
+                      "max_tokens": max_tokens, 
+                      "repeat_penalty": repeat_penalty, 
+                      "top_p": top_p, 
+                      "temperature": temperature},
+
                 stream=True  # Active le streaming
             )
             if response.status_code == 200:

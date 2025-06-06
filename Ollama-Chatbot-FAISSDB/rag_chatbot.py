@@ -10,6 +10,8 @@ from sentence_transformers import SentenceTransformer
 from ollama_api import OllamaAPI
 from Utilitaire.file_processor import FileProcessor
 from Utilitaire.filter_manager import FilterManager
+from Utilitaire.promptbuilder import PromptBuilder
+
 import traceback # Pour un meilleur débogage
 
 class RAGChatbot:
@@ -287,48 +289,109 @@ class RAGChatbot:
         cleaned = re.sub(r"<?think>", "", response, flags=re.DOTALL | re.IGNORECASE)
         cleaned = re.sub(r"</?think>", "", cleaned, flags=re.IGNORECASE)
         return cleaned.strip()
-
-    def generate_response(self, user_query,user_id,profile_id, departement_id, filiere_id):
-        # Appelle votre méthode pour trouver le contexte pertinent
+    
+    def generate_response(self, user_query, user_id, profile_id, departement_id, filiere_id):
         context_chunks = self.find_relevant_context(
             user_query, departement_id, filiere_id, top_k=3, similarity_threshold=0.55
         )
 
-        prompt_text = "" # Initialise la variable pour le texte de l'invite
-
-        if context_chunks:  # Si context_chunks n'est pas None et n'est pas une liste vide
-            context_text_joined = "\n".join(context_chunks)
-            prompt_text = (
-                f"Contexte :\n{context_text_joined}\n\n"
-                f"Question : {user_query}\n"
-                "Répondre uniquement sur la base du contexte fourni ci-dessus, sans ajouter, inférer ni reformuler d'informations extérieures. "
-                "Le cadre est strictement académique. Fournir une réponse directe, concise, sans introduction, justification ni énumération. "
-                "Supprimer toute réponse contenant ou entourée par des balises <...>.., comme celle du raisonnement. Répondre uniquement en français. "
-                "Ne pas ajouter d'introduction, de justification, d'énumération ou toute autre information."
-                "Ne répète pas l'information." # Suggestion d'ajustement    
-                "La réponse doit se limiter à une phrase claire et exacte.\n\n"
-                "Réponse :"
-            )
+        if context_chunks:
+            context_text = "\n".join(context_chunks)
+            if PromptBuilder.is_qcm_request(user_query):
+                prompt_text = PromptBuilder.build_qcm_prompt(context_text, user_query)
+            else:
+                prompt_text = PromptBuilder.build_standard_prompt(context_text, user_query)
         else:
-            # Ceci est l'invite de votre bloc 'else' original
             prompt_text = (
                 f"Question : {user_query}\n"
-                "Répondre uniquement sur la base du contexte fourni ci-dessus..." # Note ci-dessous
-                "Sans ajouter, inférer ni reformuler d'informations extérieures au contexte implicite de la question. " # Suggestion d'ajustement
-                "Le cadre est strictement académique. Fournir une réponse directe, concise, sans introduction, justification ni énumération. "
-                "Supprimer toute réponse contenant ou entourée par des balises  <...>.., comme celle du raisonnement. Répondre uniquement en français. "
-                "Ne pas ajouter d'introduction, de justification, d'énumération ou toute autre information."
-                "La réponse doit se limiter à une phrase claire et exacte.\n\nRéponse :"
+                "Si la question est hors du cadre académique, réponds par : je n'ai pas la capacité de répondre à votre question.\n\nRéponse :"
             )
-        
+
         llm_raw_response = self.ollama_api.chat_with_ollama(prompt_text)
         cleaned_llm_response = self.clean_llm_response(llm_raw_response)
 
         FilterManager.save_chat_history(
-            user_id=user_id, question=user_query, answer=cleaned_llm_response,
-            departement_id=departement_id, filiere_id=filiere_id, profile_id=profile_id
+            user_id=user_id,
+            question=user_query,
+            answer=cleaned_llm_response,
+            departement_id=departement_id,
+            filiere_id=filiere_id,
+            profile_id=profile_id
         )
+
         return cleaned_llm_response
+    # def generate_response(self, user_query,user_id,profile_id, departement_id, filiere_id):
+    #     # Appelle votre méthode pour trouver le contexte pertinent
+    #     context_chunks = self.find_relevant_context(
+    #         user_query, departement_id, filiere_id, top_k=3, similarity_threshold=0.55
+    #     )
+
+    #     prompt_text = "" # Initialise la variable pour le texte de l'invite
+
+    #     if context_chunks:  # Si context_chunks n'est pas None et n'est pas une liste vide
+    #         context_text_joined = "\n".join(context_chunks)
+    #         #print(context_chunks)
+    #         prompt_text = (
+    #             f"Contexte :\n{context_text_joined}\n\n"
+    #             f"Question : {user_query}\n"
+    #                 """
+    #                 vous êtes un assistant pédagogique. Réponds uniquement à partir du contexte fourni ci-dessus, sans ajouter, inférer ni reformuler d’informations extérieures.
+    #                 Le cadre est académique : adopte un ton engageant et motivant pour l’étudiant, tout en restant clair, précis et inspirant.
+    #                 Fournis une explication concise, sans introduction, justification ou répétition superflue.
+    #                 Supprime toute balise <...> dans la réponse.
+    #                 Exprime-toi uniquement en français.
+    #                 Structure la réponse selon la charte suivante :
+
+    #                 ********************
+    #                 Réponse :
+    #                 [Une phrase claire, précise et inspirante, directement issue du contexte.]
+    #                 ********************
+
+    #                 Ressources supplémentaires (si disponibles) :
+    #                 - [Titre de la ressource 1] : [URL]
+    #                 - [Titre de la ressource 2] : [URL]
+    #                 ********************
+
+    #                 N’affiche la section « Ressources supplémentaires » que si des ressources pertinentes sont disponibles.
+    #                 Ne fournis jamais d’informations non présentes dans le contexte.
+
+    #                 *********************
+    #                 Si l'etudiant demande un QCM procède à ce qui suit : En te basant sur ce contexte extrait des documents de cours,
+    #                 génère un QCM lié à la question suivante.
+
+    #                 Contexte : 
+    #                 {context_chunks}
+
+    #                 Question : {user_query}
+
+    #                 Génère une liste des questions QCM avec 4 propositions selon le nombre demandé par l'étudiant mais ne pas dépasser 10 au maximum, indique clairement la bonne réponse.
+
+    #                 Format :
+
+    #                 Question : [ta question]
+    #                 1) choix A
+    #                 2) choix B
+    #                 3) choix C
+    #                 4) choix D
+
+    #                 Réponse correcte : [numéro ou texte]
+    #                 """
+    #         )
+    #     else:
+    #         # Ceci est l'invite de votre bloc 'else' original
+    #         prompt_text = (
+    #             f"Question : {user_query}\n"
+    #             "Si la question est hors le cadre académique, répond par : je n'ai pas la capacité de répondre à votre question.\n\nRéponse :"
+    #         )
+        
+    #     llm_raw_response = self.ollama_api.chat_with_ollama(prompt_text)
+    #     cleaned_llm_response = self.clean_llm_response(llm_raw_response)
+
+    #     FilterManager.save_chat_history(
+    #         user_id=user_id, question=user_query, answer=cleaned_llm_response,
+    #         departement_id=departement_id, filiere_id=filiere_id, profile_id=profile_id
+    #     )
+    #     return cleaned_llm_response
 
     def simulate_typing(self, text, delay=0.009):
         for char in text:

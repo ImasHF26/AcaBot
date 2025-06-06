@@ -39,12 +39,16 @@ const dataStore = useDataStore();
 const authStore = useAuthStore(); // Initialiser authStore
 
 const handleSendMessage = (payload) => {
+  console.log("payload",payload);
+  
+  console.log("chatView userId",payload.selectedUser);
   chatStore.sendMessage({
     message: payload.message,
     departement_id: payload.selectedDepartement,
     filiere_id: payload.selectedFiliere,
-    module_id: payload.selectedModule,
-    activite_id: payload.selectedActivite,
+    show_resources: payload.showResources,
+    user_id: payload.selectedUser,
+    profile_id: payload.selectedProfile
   });
 };
 // La fonction activateInviteMode et la computed isInvite peuvent rester si le lien de connexion est ici
@@ -55,21 +59,7 @@ const isInvite = computed(() => authStore.isInvite); // Assurez-vous que isInvit
 
 // La fonction loadHistory a été supprimée d'ici
 
-onMounted(async () => {
-  console.log("ChatView.vue: Component Mounted.");
-  try {
-    if (dataStore.departements.length === 0) {
-      console.log("ChatView.vue: Fetching departements for dropdown...");
-      await dataStore.fetchDepartementsForDropdown();
-    }
-    if (dataStore.activites.length === 0) {
-      console.log("ChatView.vue: Fetching activites for dropdown...");
-      await dataStore.fetchActivitesForDropdown();
-    }
-  } catch (error) {
-    console.error("ChatView.vue: Error in onMounted:", error);
-  }
-});
+
 </script>
 
 <style scoped>

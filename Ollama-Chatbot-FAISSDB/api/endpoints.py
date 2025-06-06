@@ -177,6 +177,7 @@ def change_password(data: ChangePasswordRequest):
 
 @router.post("/chat", response_model=ChatResponse)
 def chat_with_context(data: ChatRequest, db: Session = Depends(get_db)):
+    # 1. Génère la réponse via la base vectorielle
     result = chatbot.generate_response(
         user_query=data.message,
         user_id=data.user_id,
@@ -184,12 +185,42 @@ def chat_with_context(data: ChatRequest, db: Session = Depends(get_db)):
         departement_id=data.departement_id,
         filiere_id=data.filiere_id
     )
+
+    # 2. Si la réponse est vide ou "je ne sais pas", retourne le message d'incapacité
+    if not result or result.strip().lower() in ["", "je ne sais pas", "je ne peux pas répondre à cette question"]:
+        return {
+            "response": (
+                "Je n'ai pas encore la réponse à cette question, mais n'abandonne pas ! "
+                "Essaie de reformuler ta demande ou explore les ressources complémentaires si disponibles. "
+                "Et surtout, continue à être curieux·se !"
+            ),
+            "resources": []
+        }
+
+    # 3. Si show_resources, ajoute les ressources de façon élégante et motivante
     resources = []
+    resources_text = ""
     if getattr(data, "show_resources", False):
-        context_tags = Resource.extract_tags_from_question(data.message)
+        tags_keywords = Resource.load_tags_keywords_from_db(db)
+        context_tags = Resource.extract_tags_from_question(data.message, tags_keywords)
+
         resources = Resource.get_additional_resources(db, context_tags)
+
+    if resources:
+        resources_text = (
+            "\n\n✨ **Pour aller plus loin, découvrez ces ressources sélectionnées pour vous :**\n"
+        )
+        for r in resources:
+            resources_text += f"- [{r.titre}]({r.url})\n"
+        resources_text += "\nN’hésitez pas à explorer, chaque clic est une nouvelle opportunité d’apprendre ! 🚀"
+    else:
+            resources_text = (
+                "\n\n*Je n'ai pas trouvé de ressources complémentaires sur ce sujet, mais votre curiosité est déjà une belle ressource !*"
+            )
+
+    # 4. Retourne la réponse formatée
     return {
-        "response": result,
+        "response": f"{result.strip()}{resources_text}",
         "resources": [ResourceOut.from_orm(r) for r in resources]
     }
 

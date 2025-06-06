@@ -137,6 +137,8 @@ export default {
 
   // Chat
   sendMessage(chatData) {
+    console.log('sendie',chatData);
+
     return apiClient.post('/chat', chatData);
   },
   getChatHistory(params) {

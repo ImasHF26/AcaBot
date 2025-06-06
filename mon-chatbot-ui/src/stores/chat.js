@@ -32,14 +32,17 @@ export const useChatStore = defineStore('chat', {
       this.isLoadingMessages = true;
       this.sendMessageError = null;
 
+      console.log("Chat.js ",payload.user_id)
       const chatRequestData = {
         message: payload.message,
-        departement_id: payload.departement_id || null,
-        filiere_id: payload.filiere_id || null,
-        module_id: payload.module_id || null,
-        activite_id: payload.activite_id || null,
-        profile_id: payload.profileId || null,
-        user_id: payload.userId || null,
+        departement_id: parseInt(payload.departement_id) || null,
+        filiere_id: parseInt(payload.filiere_id) || null,
+        module_id: parseInt(payload.module_id) || null,
+        activite_id: parseInt(payload.activite_id) || null,
+        profile_id: parseInt(payload.profile_id) || null,
+        //user_id: parseInt(payload.userId) || null,
+        show_resources: payload.show_resources || false,
+        user_id: parseInt(payload.user_id) || null,
       };
 
       try {

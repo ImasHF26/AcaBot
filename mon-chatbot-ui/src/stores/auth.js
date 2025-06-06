@@ -131,9 +131,12 @@ export const useAuthStore = defineStore('auth', {
       this.registerSuccess = null;
       this.changePasswordError = null;
       this.changePasswordSuccess = null;
+      this.messages = [];
       localStorage.removeItem('user');
       localStorage.removeItem('authToken');
+      localStorage.removeItem('messages');
       router.push({ name: 'Login' });
+      
     },
 
     loadUserFromStorage() {

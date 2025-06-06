@@ -9,8 +9,13 @@
         ref="textInput"
         autocomplete="off"
       />
-      <button 
-        type="button" 
+      <v-switch
+        label="Afficher les ressources"
+        color="primary"
+        v-model="show_resources"
+      ></v-switch>
+      <button
+        type="button"
         @click="toggleSpeechRecognition"
         class="voice-button"
         :class="{ 'active': isListening }"
@@ -25,6 +30,7 @@
         </svg>
       </button>
       <button type="submit" class="send-button">Envoyer</button>
+      
     </div>
     
     <div v-if="isListening" class="speech-feedback">
@@ -47,6 +53,7 @@ const dataStore = useDataStore();
 
 const newMessage = ref('');
 const textInput = ref(null);
+const show_resources = ref(null);
 
 // Reconnaissance vocale
 const isListening = ref(false);
@@ -131,12 +138,14 @@ const submitMessage = () => {
   const profileid = localStorage.getItem('profile_id');
   const departementId = localStorage.getItem('departement_id');
   const filiereId = localStorage.getItem('filiere_id');
+  console.log("chatInput",userid);
   const payload = {
     message: newMessage.value,
     selectedUser: userid,
     selectedProfile: profileid,
     selectedDepartement: departementId,
     selectedFiliere: filiereId,
+    showResources: show_resources.value,
   };
   emit('send-message', payload);
   newMessage.value = '';
