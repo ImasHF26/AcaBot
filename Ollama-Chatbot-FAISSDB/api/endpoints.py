@@ -213,10 +213,12 @@ def chat_with_context(data: ChatRequest, db: Session = Depends(get_db)):
         for r in resources:
             resources_text += f"- [{r.titre}]({r.url})\n"
         resources_text += "\nN’hésitez pas à explorer, chaque clic est une nouvelle opportunité d’apprendre ! 🚀"
+        resources_text += "\n\n **Êtes-vous satisfait ou non satisfait par la réponse ? **"
     else:
             resources_text = (
                 "\n\n*Je n'ai pas trouvé de ressources complémentaires sur ce sujet, mais votre curiosité est déjà une belle ressource !*"
             )
+            resources_text += "\n\n **Êtes-vous satisfait ou non satisfait par la réponse ? **"
 
     # 4. Retourne la réponse formatée
     return {

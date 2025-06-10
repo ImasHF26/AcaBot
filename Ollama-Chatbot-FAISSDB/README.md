@@ -1,108 +1,95 @@
+# 🤖 EduLLM Chatbot
 
-# 🤖 Ollama Chatbot
-
-Welcome to the **Ollama Chatbot**! This Python-based chatbot runs locally using the **Ollama Local API** (`http://localhost:11434/api/generate`) and the `qwen2:0.5b` model to provide fast, reliable, and offline assistance for your queries.
-![image](https://github.com/user-attachments/assets/71b8e122-7610-4401-ba2e-48b51cc65152)
-
-
-https://github.com/user-attachments/assets/fdd4d86e-d79b-4218-abd5-40df441d22c5
-
+Bienvenue dans **EduLLM Chatbot** ! Ce chatbot Python fonctionne localement, s’appuie sur l’API Ollama Local (`http://localhost:11434/api/generate`) et le modèle multimodal **gemma3:4b** pour offrir une assistance académique rapide, fiable et hors-ligne.
 
 ---
 
-## 🌟 Features
+## 🌟 Fonctionnalités
 
-- 🏡 **Runs Locally**: No internet or external API required—everything is handled on your local machine.
-- 🤖 **AI-Powered Chat**: Smart and context-aware responses.
-- 💻 **Code Generation**: Get Python code snippets and technical help.
-- ⚡ **Lightweight and Fast**: Uses the `qwen2:0.5b` model for efficient performance.
+- **🏡 Exécution Locale**  
+  Tout se passe sur votre machine : aucune connexion internet ou API externe requise, garantissant confidentialité et accès ininterrompu.
+
+- **🤖 Chat IA**  
+  Profitez de réponses intelligentes, contextuelles et adaptées à vos besoins éducatifs.
+
+- **💻 Génération de Contenu**  
+  Créez des cours complets, des quiz stimulants et des résumés concis de documents pédagogiques.
+
+- **⚡ Léger et Rapide**  
+  Utilise le modèle efficace **gemma3:4b** pour des performances optimales sans compromis sur la qualité.
+
+- **🧠 RAG Avancé (Retrieval-Augmented Generation)**  
+  - **Embedding** : Intégration avec `BAAI/bge-base-en-v1.5` pour des embeddings robustes et une compréhension sémantique précise.  
+  - **Découpage & Recouvrement** : Découpe intelligente des documents en segments avec recouvrement pour préserver le contexte.  
+  - **Base de Vecteurs** : Utilisation de **FaissDB** pour un stockage et une recherche rapide des informations pertinentes.  
+  - **Similarité Cosinus** : Recherche des informations les plus proches sémantiquement.  
+  - **Reranking** : Raffinement des résultats pour ne garder que les plus pertinents et cohérents.  
+  - **Génération de Réponse** : Synthèse claire, concise et précise à partir des segments retrouvés.
+
+- **🚀 Backend FastAPI**  
+  Construit avec **FastAPI** pour une API robuste, performante et facile à utiliser.
 
 ---
 
-## 📋 Getting Started
+## 📋 Prise en Main
 
-Follow these steps to set up and run the chatbot:
+Suivez ces étapes pour installer et lancer le chatbot :
 
-### 1️⃣ Clone the Repository
+### 1️⃣ Cloner le Dépôt
 
 ```bash
-git clone https://github.com/yourusername/ollama-chatbot.git
-cd ollama-chatbot
+git clone https://github.com/ImasHF26/EduLLM.git
+cd EduLLM
 ```
 
-### 2️⃣ Install Dependencies
-
-Make sure Python 3.6 or higher is installed. Set up a virtual environment and install the required libraries:
+### 2️⃣ Installer les dépendances
+Assurez-vous d’avoir Python 3.11 ou plus. Créez un environnement virtuel et installez les dépendances :
 
 ```bash
 python -m venv .venv
-source .venv/bin/activate  # On Windows use .venv\Scripts\activate
+.venv\Scripts\activate  # Sur Windows
 pip install -r requirements.txt
 ```
 
-### 3️⃣ Ensure Local API Is Running 🖥️
+### 3️⃣ Vérifier que l’API locale fonctionne 🖥️
+Le chatbot s’appuie sur une API locale pour générer les réponses. Vérifiez que l’API Ollama fonctionne à l’adresse http://localhost:11434/api/generate.
 
-The chatbot uses a **local API** to generate responses.  
-Verify that the API is running at `http://localhost:11434/api/generate`.
+Modèle utilisé : gemma3:4b  
+Pourquoi ce modèle ? Il offre un bon compromis entre performance, rapidité et précision, idéal pour des conversations éducatives et la génération de contenu.
 
-- **Model used**: `qwen2:0.5b`  
-- **Why this model?** It provides balanced performance, speed, and accuracy for general-purpose conversations.
+Si l’API n’est pas démarrée, référez-vous à la documentation officielle d’Ollama pour configurer le serveur local et télécharger le modèle gemma3:4b.
 
-If the API is not running, refer to the setup guide provided with your local server.
-
-### 4️⃣ Run the Chatbot 🚀
-
-Now, you can start the chatbot:
+### 4️⃣ Lancer le chatbot 🚀
+Une fois les dépendances installées et l’API locale démarrée, lancez le chatbot :
 
 ```bash
-python main.py
+uvicorn api.main:app --reload
 ```
+
+Ouvrez votre navigateur et rendez-vous à l’adresse indiquée par Uvicorn (généralement http://127.0.0.1:8000).
+
+### 💬 Exemples d’utilisation
+Commencez à discuter ! Par exemple, vous pouvez demander :
+
+- "Qu'est ce qu'un perceptron ?"
+- "Donne-moi une introduction au DevOps."
+- "Crée un quiz sur l'apprentissage automatique."
+- "Résume le concept de la régression linéaire."
 
 ---
 
-## 🛠️ Project Structure
+## 📌 Tâches principales du projet
 
-Here’s an overview of the project files:
-
-```
-Ollama Chatbot/
-│
-├── .venv/              # Virtual environment
-├── ollama_api.py       # Handles interaction with the local API
-├── chatbot.py          # Contains chatbot logic
-├── main.py             # Main entry point to run the chatbot
-└── requirements.txt    # List of dependencies
-```
-
----
-
-## 💻 Usage Instructions
-
-1. Launch the chatbot using the `python main.py` command.
-2. Start chatting! For example:
-   - "Can you generate a Python function to calculate factorial?"
-   - "How does the local model work?"
-
----
-
-## 📌 Important Notes
-
-- This project runs entirely on your local machine without needing an external API.  
-- The **local API endpoint** is `http://localhost:11434/api/generate`.  
-- The **model used** is `qwen2:0.5b` for its high performance in generating accurate and efficient responses.  
+- Installation et configuration de l’environnement Python et des dépendances
+- Mise en place et vérification de l’API Ollama et du modèle gemma3:4b
+- Lancement du backend FastAPI
+- Développement et maintenance des fonctionnalités principales (chat, génération de contenu, RAG, etc.)
+- Tests et validation du fonctionnement du chatbot
+- Documentation et amélioration continue
 
 ---
 
 ## 🤝 Contribution
+Les contributions sont les bienvenues ! 🛠️
 
-Contributions are welcome! 🛠️  
-Fork the repository, create a branch, and submit a pull request.
-
----
-
-
-### **Updates Added**:
-1. **Local API Endpoint**: Explained the usage of `http://localhost:11434/api/generate`.
-2. **Model Details**: Described `qwen2:0.5b` and its purpose in providing a lightweight and fast experience.
-3. **Removed External Dependencies**: Highlighted that the chatbot doesn’t require external APIs.
-4. **Clear Setup Process**: Provided instructions to ensure the local API is running properly.
+Si vous souhaitez contribuer, veuillez forker le dépôt, créer une branche pour vos fonctionnalités ou corrections, puis soumettre une pull request. Merci d’aider à améliorer EduLLM !

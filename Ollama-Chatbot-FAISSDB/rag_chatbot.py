@@ -21,8 +21,8 @@ class RAGChatbot:
         self.file_processor = FileProcessor(chunk_size, chunk_overlap)
         self.dimension = 768  # Correct pour BAAI/bge-base-en-v1.5
         self.MCNoeud = 32
-        self.efSearch = 200
-        self.efConstruction = 128
+        self.efSearch = 100
+        self.efConstruction = 80
         self.faiss_index_file = faiss_index_file
         self.metadata_file = metadata_file
         self.hashes_file = hashes_file
@@ -40,16 +40,8 @@ class RAGChatbot:
             # print(f"Chargement de l'index Faiss depuis {self.faiss_index_file}")
             return faiss.read_index(self.faiss_index_file)
         else:
-            print("Initialisation d'un nouvel index Faiss HNSWFlat.")
-            # Pour IndexHNSWFlat, le deuxième argument est M (nombre de connexions)
-            # La métrique par défaut pour IndexHNSWFlat est L2.
-            # Si vous voulez utiliser le produit scalaire (IP) pour la similarité cosinus
-            # après normalisation, l'index plat sous-jacent doit être IP.
-            # IndexHNSWFlat stocke les vecteurs dans un IndexFlatL2 par défaut.
-            # Pour utiliser IP avec HNSW, vous pouvez utiliser faiss.IndexHNSWSQ ou construire
-            # un IndexHNSW sur un IndexFlatIP.
-            # Cependant, IndexHNSWFlat avec METRIC_INNER_PRODUCT est aussi une option.
-            # index = faiss.IndexHNSWFlat(self.dimension, self.MCNoeud) # Utilise L2 par défaut
+            
+            
             index = faiss.IndexHNSWFlat(self.dimension, self.MCNoeud, faiss.METRIC_INNER_PRODUCT)
             index.hnsw.efSearch = self.efSearch
             index.hnsw.efConstruction = self.efConstruction
@@ -299,13 +291,20 @@ class RAGChatbot:
             context_text = "\n".join(context_chunks)
             if PromptBuilder.is_qcm_request(user_query):
                 prompt_text = PromptBuilder.build_qcm_prompt(context_text, user_query)
+                
+            elif "résumé" in user_query.lower() or "synthèse" in user_query.lower():
+                prompt_text = PromptBuilder.build_summary_prompt(context_text, user_query)
+                
             else:
                 prompt_text = PromptBuilder.build_standard_prompt(context_text, user_query)
+                
         else:
             prompt_text = (
                 f"Question : {user_query}\n"
                 "Si la question est hors du cadre académique, réponds par : je n'ai pas la capacité de répondre à votre question.\n\nRéponse :"
+                
             )
+        
 
         llm_raw_response = self.ollama_api.chat_with_ollama(prompt_text)
         cleaned_llm_response = self.clean_llm_response(llm_raw_response)

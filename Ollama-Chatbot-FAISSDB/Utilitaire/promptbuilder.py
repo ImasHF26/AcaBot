@@ -18,7 +18,7 @@ class PromptBuilder:
             f"{user_query}\n\n"
             "Vous êtes un assistant pédagogique. Réponds uniquement à partir du contexte fourni ci-dessus, sans ajouter, inférer ni reformuler d’informations extérieures.\n"
             "Le cadre est académique : adopte un ton engageant et motivant pour l’étudiant, tout en restant clair, précis et inspirant.\n"
-            "Fournis une explication concise, sans introduction, justification ou répétition superflue.\n"
+            "Fournis une explication concise et une justification, sans introduction ou répétition superflue.\n"
             "Supprime toute balise <...> dans la réponse.\n"
             "Exprime-toi uniquement en français.\n"
             "Formate toute la réponse en **Markdown** selon la charte suivante :\n\n"
@@ -32,10 +32,16 @@ class PromptBuilder:
             "---\n"
             "- N’affiche la section « Ressources supplémentaires » que si des ressources pertinentes sont disponibles.\n"
             "- Ne fournis jamais d’informations non présentes dans le contexte.\n"
+            "- Ne réponds pas si le contexte est vide ou ne contient pas d’informations pertinentes pour la question.\n"
+            "- Ne réponds pas si la question est hors sujet ou ne peut pas être traitée avec les informations fournies.\n"
+            "- Ne réponds pas si la question est trop vague ou nécessite des informations supplémentaires pour être traitée.\n"
+            "- Ne réponds pas si la question est une demande de QCM, utilise plutôt la méthode `build_qcm_prompt`.\n"
+            "- Ne réponds pas si la question est une demande de résumé, utilise plutôt la méthode `build_summary_prompt`.\n"
+            
         )
 
     @staticmethod
-    def build_qcm_prompt(context_text, user_query, max_questions=10):
+    def build_qcm_prompt(context_text, user_query, max_questions=20):
         return (
             f"# Contexte\n"
             f"{context_text}\n\n"
@@ -54,4 +60,28 @@ class PromptBuilder:
             "---\n"
             "Exprime-toi uniquement en français.\n"
             "Ne fournis jamais d’informations non présentes dans le contexte.\n"
+            
+        )
+
+    @staticmethod
+    def build_summary_prompt(context_text, user_query):
+        return (
+            f"# Contexte\n"
+            f"{context_text}\n\n"
+            f"# Demande\n"
+            f"{user_query}\n\n"
+            "En te basant uniquement sur le contexte fourni, rédige un résumé clair, concis et structuré des informations essentielles.\n"
+            "N'ajoute aucune information extérieure, ne reformule pas ce qui n'est pas dans le contexte.\n"
+            "Exprime-toi uniquement en français.\n"
+            "Formate le résumé en **Markdown** selon la charte suivante :\n\n"
+            "---\n"
+            "## 📝 Résumé\n"
+            "> [Un résumé synthétique, fidèle au contexte, sans ajout ni interprétation.]\n"
+            "---\n"
+            "- Ne réponds pas si le contexte est vide ou ne contient pas d'informations pertinentes pour la demande.\n"
+            "- Ne réponds pas si la question est hors sujet ou ne peut pas être traitée avec les informations fournies.\n"
+            "- Ne réponds pas si la question est trop vague ou nécessite des informations supplémentaires pour être traitée.\n"
+            "- Ne réponds pas si la question est une demande de QCM, utilise plutôt la méthode `build_qcm_prompt`.\n"
+            "- Ne réponds pas si la question est une demande de réponse standard, utilise plutôt la méthode `build_standard_prompt`.\n"
+           
         )

@@ -6,8 +6,8 @@ class OllamaAPI:
         self.api_url = api_url
 
     def chat_with_ollama(self, prompt,
-                        model="gemma2:9b",
-                        max_tokens=4096,
+                        model="gemma3:4b",
+                        max_tokens=8000,
                         repeat_penalty=1.1,
                         top_p=0.9,
                         temperature=0.7,
